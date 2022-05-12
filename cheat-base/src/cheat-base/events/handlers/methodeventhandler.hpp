@@ -119,9 +119,9 @@ namespace events::handlers
 
 
     template<class TObject, class TResult, class ...TParams>
-    std::shared_ptr<MethodHolder<typename std::decay<TObject>::type, TResult, TParams...>> createMethodEventHandler( TObject&& object, TResult( std::decay<TObject>::type::*method )( TParams... ) )
+    std::shared_ptr<MethodHolder<std::decay_t<TObject>, TResult, TParams...>> createMethodEventHandler( TObject&& object, TResult( std::decay<TObject>::type::*method )( TParams... ) )
     {
-        return MethodHolder<std::decay<TObject>::type, TResult, TParams...>::create( std::forward<TObject>( object ), method );
+        return MethodHolder<std::decay_t<TObject>, TResult, TParams...>::create( std::forward<TObject>( object ), method );
     }
 }
 
