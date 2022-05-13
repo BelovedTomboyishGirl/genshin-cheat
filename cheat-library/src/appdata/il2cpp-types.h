@@ -9283,8 +9283,14 @@ namespace app {
         struct Dictionary_2_KFEENBPGJJA_IPEPPEAIJEC_* _cacheFightPropValueDic;
         bool _isToBeRemoved;
         bool _unCacheEntity;
-        NLBBPJJMEGB__Enum NDLLPHLDHBJ;
+        NLBBPJJMEGB__Enum climateType;
         uint32_t climateAreaID;
+    };
+
+    struct DataItem {
+        struct DataItem__Class* klass;
+        MonitorData* monitor;
+        struct DataItem__Fields fields;
     };
 
 

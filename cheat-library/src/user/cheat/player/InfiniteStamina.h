@@ -20,12 +20,14 @@ namespace cheat::feature
 
 		virtual bool NeedStatusDraw() const override;
 		void DrawStatus() override;
-	
-		bool OnPropertySet(app::PropType__Enum propType);
-		void OnMoveSync(uint32_t entityId, app::MotionInfo* syncInfo);
 
 	private:
 		InfiniteStamina();
+
+		bool OnPropertySet(app::PropType__Enum propType);
+		void OnMoveSync(uint32_t entityId, app::MotionInfo* syncInfo);
+
+		static void DataItem_HandleNormalProp_Hook(app::DataItem* __this, uint32_t type, int64_t value, app::DataPropOp__Enum state, MethodInfo* method);
 	};
 }
 

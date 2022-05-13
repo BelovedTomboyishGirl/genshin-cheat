@@ -30,10 +30,7 @@ DO_APP_FUNC(0x07758D10, Vector3, LocalEntityInfoData_GetTargetPos, (LocalEntityI
 
 // Unlimited stamina
 DO_APP_FUNC(0x04BDB410, void, LevelSyncCombatPlugin_RequestSceneEntityMoveReq, (BKFGGJFIIKC* __this, uint32_t entityId, MotionInfo* syncInfo, bool isReliable, uint32_t HAOCOEMOMBG, MethodInfo* method));
-DO_APP_FUNC(0x079284D0, void, AvatarPropDictionary_SetItem, (Dictionary_2_JNHGGGCKJNA_JKNLDEEBGLL_* __this, JNHGGGCKJNA key, JKNLDEEBGLL value, MethodInfo* method));
-DO_APP_FUNC(0x039AAB80, double, AvatarProp_DecodePropValue, (void* __this, JKNLDEEBGLL EODGKCKCMDM, MethodInfo* method));
-DO_APP_FUNC(0x042DDF80, PropType__Enum, AvatarProp_DecodePropType, (void* __this, JNHGGGCKJNA EODGKCKCMDM, MethodInfo* method));
-DO_APP_FUNC_METHODINFO(0x0B2CFD70, AvatarPropDictionary_SetItem__MethodInfo);
+DO_APP_FUNC(0x0186C290, void, DataItem_HandleNormalProp, (DataItem* __this, uint32_t type, int64_t value, DataPropOp__Enum state, MethodInfo* method));
 
 
 // God mode

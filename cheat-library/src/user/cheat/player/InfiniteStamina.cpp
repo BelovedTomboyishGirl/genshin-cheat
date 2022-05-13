@@ -7,14 +7,11 @@
 
 namespace cheat::feature 
 {
-	static void AvatarPropDictionary_SetItem_Hook(app::Dictionary_2_JNHGGGCKJNA_JKNLDEEBGLL_* __this, app::JNHGGGCKJNA key,
-		app::JKNLDEEBGLL value, MethodInfo* method);
-
     InfiniteStamina::InfiniteStamina() : Feature(),
         NF(f_Enabled, "Infinite stamina", "InfiniteStamina", false),
         NF(f_PacketReplacement, "Move sync packet replacement", "InfiniteStamina", false)
     {
-		HookManager::install(app::AvatarPropDictionary_SetItem, AvatarPropDictionary_SetItem_Hook);
+		HookManager::install(app::DataItem_HandleNormalProp, DataItem_HandleNormalProp_Hook);
 
 		events::MoveSyncEvent += MY_METHOD_HANDLER(InfiniteStamina::OnMoveSync);
     }
@@ -105,13 +102,15 @@ namespace cheat::feature
 				afterDash = state == app::MotionState__Enum::MotionDash;
 		}
 	}
-
-	static void AvatarPropDictionary_SetItem_Hook(app::Dictionary_2_JNHGGGCKJNA_JKNLDEEBGLL_* __this, app::JNHGGGCKJNA key, app::JKNLDEEBGLL value, MethodInfo* method)
+	
+	void InfiniteStamina::DataItem_HandleNormalProp_Hook(app::DataItem* __this, uint32_t type, int64_t value, app::DataPropOp__Enum state, MethodInfo* method)
 	{
-		app::PropType__Enum propType = app::AvatarProp_DecodePropType(nullptr, key, nullptr);
-		auto& infiniteStamina = InfiniteStamina::GetInstance();
-		if (infiniteStamina.OnPropertySet(propType))
-			CALL_ORIGIN(AvatarPropDictionary_SetItem_Hook, __this, key, value, method);
+		auto& infiniteStamina = GetInstance();
+
+		auto propType = static_cast<app::PropType__Enum>(type);
+		bool isValid = infiniteStamina.OnPropertySet(propType);
+		if (isValid)
+			CALL_ORIGIN(DataItem_HandleNormalProp_Hook, __this, type, value, state, method);
 	}
 }
 
