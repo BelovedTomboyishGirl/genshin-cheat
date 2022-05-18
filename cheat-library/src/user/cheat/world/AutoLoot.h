@@ -1,6 +1,6 @@
 #pragma once
 #include <cheat-base/cheat/Feature.h>
-#include <cheat-base/config/Config.h>
+#include <cheat-base/config/config.h>
 #include <cheat-base/thread-safe.h>
 
 namespace cheat::feature 
@@ -9,10 +9,18 @@ namespace cheat::feature
 	class AutoLoot : public Feature
     {
 	public:
-		config::field::ToggleField m_Enabled;
-		config::field::BaseField<int> m_DelayTime;
-		config::field::BaseField<bool> m_UseCustomRange;
-		config::field::BaseField<float> m_CustomRange;
+		config::Field<config::Toggle<Hotkey>> f_AutoPickup;
+		config::Field<config::Toggle<Hotkey>> f_AutoTreasure;
+		config::Field<config::Toggle<Hotkey>> f_UseCustomRange;
+
+		config::Field<int> f_DelayTime;
+		config::Field<float> f_CustomRange;
+
+		config::Field<bool> f_Chest;
+		config::Field<bool> f_Leyline;
+		config::Field<bool> f_Investigate;
+		config::Field<bool> f_QuestInteract;
+		config::Field<bool> f_Others;
 
 		static AutoLoot& GetInstance();
 

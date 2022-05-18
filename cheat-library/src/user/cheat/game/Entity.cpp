@@ -11,15 +11,28 @@ namespace cheat::game
 	{
 	}
 
+	app::String* GetRawName(game::Entity* entity)
+	{
+		SAFE_BEGIN();
+		return app::BaseEntity_ToStringRelease(entity->raw(), nullptr);
+		SAFE_ERROR();
+		return nullptr;
+		SAFE_END();
+	}
 	std::string& Entity::name()
 	{
 		if (m_HasName || m_RawEntity == nullptr || !isLoaded())
 			return m_Name;
 
-		auto name = il2cppi_to_string(app::BaseEntity_ToStringRelease(m_RawEntity, nullptr));
+		auto rawName = GetRawName(this);
+		if (rawName == nullptr)
+			return m_Name;
+
+		auto name = il2cppi_to_string(rawName);
 		m_Name = name;
 		m_HasName = true;
 		return m_Name;
+
 	}
 
 	app::BaseEntity* Entity::raw()
@@ -58,11 +71,19 @@ namespace cheat::game
 
 		return app::BaseEntity_GetAbsolutePosition(m_RawEntity, nullptr);
 	}
+	
+	app::Vector2 Entity::levelPosition()
+	{
+		if (m_RawEntity == nullptr)
+			return {};
+
+		return app::Miscs_GenLevelPos_1(nullptr, absolutePosition(), nullptr);
+	}
 
 	float Entity::distance(Entity* entity)
 	{
 		if (entity == nullptr)
-			return 1000;
+			return 10000;
 
 		return distance(entity->relativePosition());
 	}
@@ -70,7 +91,7 @@ namespace cheat::game
 	float Entity::distance(app::BaseEntity* rawEntity)
 	{
 		if (rawEntity == nullptr)
-			return 0;
+			return 10000;
 
 		auto point = app::BaseEntity_GetRelativePosition(rawEntity, nullptr);
 		return distance(point);
@@ -79,10 +100,18 @@ namespace cheat::game
 	float Entity::distance(const app::Vector3& point)
 	{
 		if (m_RawEntity == nullptr)
-			return 0;
+			return 10000;
 
 		auto dist = app::Vector3_Distance(nullptr, relativePosition(), point, nullptr);
 		return dist;
+	}
+
+	float Entity::distance(const app::Vector2& levelPoint)
+	{
+		if (m_RawEntity == nullptr)
+			return 10000;
+
+		return app::Vector2_Distance(nullptr, levelPosition(), levelPoint, nullptr);
 	}
 
 	bool Entity::isGadget()
@@ -226,4 +255,5 @@ namespace cheat::game
 	{
 		return -up();
 	}
+
 }

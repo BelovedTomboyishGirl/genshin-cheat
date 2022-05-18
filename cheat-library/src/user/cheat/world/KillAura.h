@@ -1,6 +1,6 @@
 #pragma once
 #include <cheat-base/cheat/Feature.h>
-#include <cheat-base/config/Config.h>
+#include <cheat-base/config/config.h>
 
 namespace cheat::feature 
 {
@@ -8,11 +8,13 @@ namespace cheat::feature
 	class KillAura : public Feature
     {
 	public:
-		config::field::ToggleField m_Enabled;
-		config::field::BaseField<bool> m_OnlyTargeted;
-		config::field::BaseField<float> m_Range;
-		config::field::BaseField<int> m_AttackDelay;
-		config::field::BaseField<int> m_RepeatDelay;
+		config::Field<config::Toggle<Hotkey>> f_Enabled;
+		config::Field<config::Toggle<Hotkey>> f_DamageMode;
+		config::Field<config::Toggle<Hotkey>> f_InstantDeathMode;
+		config::Field<bool> f_OnlyTargeted;
+		config::Field<float> f_Range;
+		config::Field<int> f_AttackDelay;
+		config::Field<int> f_RepeatDelay;
 
 		static KillAura& GetInstance();
 

@@ -14,16 +14,20 @@
 #include <cheat/game/CacheFilterExecutor.h>
 #include <cheat-base/render/renderer.h>
 #include <helpers.h>
+#include <imgui_internal.h>
 
 // This module is for debug purpose, and... well.. it's shit coded ^)
 namespace cheat::feature 
 {
+
     static bool ActorAbilityPlugin_OnEvent_Hook(void* __this, app::BaseEvent* e, MethodInfo* method);
     void OnGameUpdate();
+    static bool csvFriendly = true;
+    static bool includeHeaders = true;
 
 	Debug::Debug() : Feature()
 	{
-        events::GameUpdateEvent += FREE_METHOD_HANDLER(OnGameUpdate);
+        events::GameUpdateEvent += FUNCTION_HANDLER(OnGameUpdate);
 		HookManager::install(app::ActorAbilityPlugin_OnEvent, ActorAbilityPlugin_OnEvent_Hook);
 		// HookManager::install(app::LuaShellManager_ReportLuaShellResult, LuaShellManager_ReportLuaShellResult_Hook);
 		// HookManager::install(app::LuaShellManager_DoString, LuaShellManager_DoString_Hook);
@@ -76,13 +80,13 @@ namespace cheat::feature
 
 #undef printString
 
-        callOrigin(SendInfo_Hook, __this, info, method);
+        CALL_ORIGIN(SendInfo_Hook, __this, info, method);
     }
 
     static void Lua_xlua_pushasciistring_Hook(void* __this, void* L, app::String* str, MethodInfo* method)
     {
         LOG_DEBUG("Pushed string: %s", il2cppi_to_string(str).c_str());
-        callOrigin(Lua_xlua_pushasciistring_Hook, __this, L, str, method);
+        CALL_ORIGIN(Lua_xlua_pushasciistring_Hook, __this, L, str, method);
     }
 
     static int checkCount = 0;
@@ -93,27 +97,27 @@ namespace cheat::feature
             LOG_DEBUG("After size %d; name: %s", chunk->bounds == nullptr ? chunk->max_length : chunk->bounds->length, il2cppi_to_string(chunkName).c_str());
             checkCount--;
         }
-        return callOrigin(LuaEnv_DoString_Hook, __this, chunk, chunkName, env, method);
+        return CALL_ORIGIN(LuaEnv_DoString_Hook, __this, chunk, chunkName, env, method);
     }
 
     static void LuaShellManager_DoString_Hook(void* __this, app::Byte__Array* byteArray, MethodInfo* method)
     {
         LOG_DEBUG("Size %d", byteArray->bounds == nullptr ? byteArray->max_length : byteArray->bounds->length);
         checkCount = 10;
-        callOrigin(LuaShellManager_DoString_Hook, __this, byteArray, method);
+        CALL_ORIGIN(LuaShellManager_DoString_Hook, __this, byteArray, method);
     }
 
     static void LuaShellManager_ReportLuaShellResult_Hook(void* __this, app::String* type, app::String* value, MethodInfo* method)
     {
         std::cout << "Type: " << il2cppi_to_string(type) << std::endl;
         std::cout << "Value: " << il2cppi_to_string(value) << std::endl;
-        callOrigin(LuaShellManager_ReportLuaShellResult_Hook, __this, type, value, method);
+        CALL_ORIGIN(LuaShellManager_ReportLuaShellResult_Hook, __this, type, value, method);
     }
 
     static bool ActorAbilityPlugin_OnEvent_Hook(void* __this, app::BaseEvent* e, MethodInfo* method)
     {
         // LOG_DEBUG("Fire event: %s, targetID %u", magic_enum::enum_name(e->fields.eventID).data(), e->fields.targetID);
-        return callOrigin(ActorAbilityPlugin_OnEvent_Hook, __this, e, method);
+        return CALL_ORIGIN(ActorAbilityPlugin_OnEvent_Hook, __this, e, method);
     }
 
     static void DrawWaypoints(UniDict<uint32_t, UniDict<uint32_t, app::MapModule_ScenePointData>*>* waypointsGrops)
@@ -191,6 +195,291 @@ namespace cheat::feature
         ImGui::Text("Entity name: %s", entity->name().c_str());
     }
 
+    void CopyEntityDetailsToClipboard(std::vector<game::Entity*> entities)
+    {
+        std::string entitiesDetails = "";
+        if (csvFriendly && includeHeaders)
+            entitiesDetails.append("Entity,RuntimeID,Name,PosX,PosY,PosZ\n");
+        for (auto entity : entities) {
+            auto entityPos = entity->absolutePosition();
+            std::string baseString = csvFriendly ? "{},{},{},{},{},{}" : "{} {} {} x={} y={} z={}";
+            auto entityDetails = fmt::format(baseString,
+                fmt::ptr(entity),
+                entity->runtimeID(),
+                entity->name().c_str(),
+                entityPos.x, entityPos.y, entityPos.z
+            );
+            entitiesDetails.append(entityDetails);
+            entitiesDetails.append("\n");
+        }
+        ImGui::SetClipboardText(entitiesDetails.c_str());
+    }
+
+    void CopyEntityDetailsToClipboard(game::Entity* entity)
+    {
+        auto entityPos = entity->absolutePosition();
+        std::string headerString = "Entity,RuntimeID,Name,PosX,PosY,PosZ\n";
+        std::string baseString = csvFriendly ? "{},{},{},{},{},{}" : "{} {} {} x={} y={} z={}";
+        if (csvFriendly && includeHeaders)
+            baseString = headerString.append(baseString);
+        auto entityDetails = fmt::format(baseString,
+            fmt::ptr(entity),
+            entity->runtimeID(),
+            entity->name().c_str(),
+            entityPos.x, entityPos.y, entityPos.z
+        );
+        ImGui::SetClipboardText(entityDetails.c_str());
+    }
+
+    void DrawCombatDetails(game::Entity* entity)
+    {
+        auto combat = entity->combat();
+        if (combat != nullptr) {
+            auto combatProp = combat->fields._combatProperty_k__BackingField;
+            auto maxHP = app::SafeFloat_GetValue(nullptr, combatProp->fields.maxHP, nullptr);
+            auto HP = app::SafeFloat_GetValue(nullptr, combatProp->fields.HP, nullptr);
+            auto isLockHp = combatProp->fields.islockHP == nullptr || app::FixedBoolStack_get_value(combatProp->fields.islockHP, nullptr);
+            auto isInvincible = combatProp->fields.isInvincible == nullptr || app::FixedBoolStack_get_value(combatProp->fields.isInvincible, nullptr);
+            ImGui::BeginTooltip();
+            ImGui::Text("Combat: %s", combat == nullptr ? "No" : "Yes");
+            ImGui::Text("Combat Prop: %s", combatProp == nullptr ? "No" : "Yes");
+            ImGui::Text("HP Curr/Max: %.01f/%.01f", HP, maxHP);
+            ImGui::Text("Locked HP: %s", isLockHp ? "Yes" : "No");
+            ImGui::Text("Invincible: %s", isInvincible ? "Yes" : "No");
+            ImGui::EndTooltip();
+        }
+    }
+
+    void DrawEntityActionButtons(game::Entity* entity, bool& csvFriendly)
+    {
+        auto& manager = game::EntityManager::instance();
+
+        if (ImGui::SmallButton("T"))
+        {
+            auto& mapTeleport = MapTeleport::GetInstance();
+            mapTeleport.TeleportTo(entity->absolutePosition());
+        };
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Teleport");
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton("S"))
+            entity->setRelativePosition(manager.avatar()->relativePosition());
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Summon");
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton("B"))
+            entity->setRelativePosition({ 0, 0, 0 });
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Banish");
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton("C"))
+            CopyEntityDetailsToClipboard(entity);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Copy Details");
+    }
+
+    std::vector<game::Entity*> SortEntities(std::vector<game::Entity*> entities, Debug::EntitySortCondition condition)
+    {
+        switch (condition) {
+        case Debug::EntitySortCondition::RuntimeID: {
+            std::sort(entities.begin(),
+                entities.end(),
+                [](game::Entity* e1, game::Entity* e2) {
+                    auto s1 = e1->runtimeID();
+                    auto s2 = e2->runtimeID();
+                    return s1 < s2;
+                });
+            break;
+        }
+        case Debug::EntitySortCondition::Name: {
+            std::sort(entities.begin(),
+                entities.end(),
+                [](game::Entity* e1, game::Entity* e2) {
+                    auto s1 = e1->name().c_str();
+                    auto s2 = e2->name().c_str();
+                    return s1 < s2;
+                });
+            break;
+        }
+        case Debug::EntitySortCondition::Distance: {
+            std::sort(entities.begin(),
+                entities.end(),
+                [](game::Entity* e1, game::Entity* e2) {
+                    auto& manager = game::EntityManager::instance();
+                    return manager.avatar()->distance(e1) < manager.avatar()->distance(e2);
+                });
+            break;
+        }
+        default:
+            break;
+        }
+        return entities;
+    }
+
+    void TeleportByCondition(std::vector<game::Entity*> entities, Debug::TeleportCondition condition)
+    {
+        auto& manager = game::EntityManager::instance();
+        auto& mapTeleport = MapTeleport::GetInstance();
+
+        // Opted for this instead of min_/max_element to guarantee no voodoo magic happens.
+        // We'll go for min_/max_element later on if we want to implement weird sorts like
+        // lowest HP/highest HP/etc. Even then, that will be in SortEntities, not here.
+        // Like so: SortEntities(entities, Debug::EntitySortCondition::Health);
+        auto sortedEntities = SortEntities(entities, Debug::EntitySortCondition::Distance);
+        // Always have a default target!
+        auto target = sortedEntities.front();
+
+        // Keeping this as a switch statement instead of ternary. We don't know yet how
+        // many cases we want to keep supporting. Ternary is cleaner, but not a big
+        // performance hit if we keep a switch statement.
+        switch (condition) {
+            case Debug::TeleportCondition::Closest: {
+                // We've already selected this.
+                break;
+            }
+            case Debug::TeleportCondition::Farthest: {
+                target = sortedEntities.back();
+                break;
+            }
+        }
+        
+        // Separating this logic to keep it clean and consistent.
+        if (target != nullptr)
+        {
+            auto targetDist = manager.avatar()->distance(target);
+            if (targetDist > 30.0f)
+                mapTeleport.TeleportTo(target->absolutePosition());
+            else manager.avatar()->setRelativePosition(target->relativePosition());
+        }
+    }
+
+    void SummonEntities(game::Entity* entity)
+    {
+        auto& manager = game::EntityManager::instance();
+        entity->setRelativePosition(manager.avatar()->relativePosition());
+    }
+
+    void SummonEntities(std::vector<game::Entity*> entities)
+    {
+        for (auto entity : entities)
+            SummonEntities(entity);
+    }
+
+    void BanishEntities(game::Entity* entity)
+    {
+        entity->setRelativePosition({ 0, 0, 0 });
+    }
+
+    void BanishEntities(std::vector<game::Entity*> entities)
+    {
+        for (auto entity : entities)
+            BanishEntities(entity);
+    }
+
+    void DrawEntityGroupActionButtons(std::vector<game::Entity*> entities, bool& csvFriendly, bool& includeHeaders)
+    {
+        auto& manager = game::EntityManager::instance();
+
+        if (ImGui::Button("Teleport: Closest"))
+            TeleportByCondition(entities, Debug::TeleportCondition::Closest);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Teleport: Farthest"))
+            TeleportByCondition(entities, Debug::TeleportCondition::Farthest);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Summon All"))
+            SummonEntities(entities);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Banish All"))
+            BanishEntities(entities);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Copy All Details"))
+            CopyEntityDetailsToClipboard(entities);
+
+        ImGui::SameLine();
+        ImGui::Checkbox("CSV Friendly", &csvFriendly);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Uses comma separation and removes xyz from pos on copy.");
+
+        if (csvFriendly) {
+            ImGui::SameLine();
+            ImGui::Checkbox("Include Headers", &includeHeaders);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Includes headers when copying.");
+        }
+    }
+
+    void DrawEntitiesTable(std::vector<game::Entity*> entities)
+    {
+        auto& manager = game::EntityManager::instance();
+        auto clipSize = min(entities.size(), 15) + 1; // Number of rows in table as initial view. Past this is scrollbar territory.
+
+        static ImGuiTableFlags flags =
+            ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable // | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
+            | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody
+            | ImGuiTableFlags_ScrollY;
+        if (ImGui::BeginTable("EntityTable", 8, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * clipSize), 0.0f))
+        {
+            ImGui::TableSetupColumn("Commands", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 0.0, 0);
+            ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 0.0f, 1);
+            ImGui::TableSetupColumn("RuntimeID", ImGuiTableColumnFlags_WidthFixed, 0.0f, 2);
+            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 0.0f, 3);
+            ImGui::TableSetupColumn("Distance", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortAscending | ImGuiTableColumnFlags_WidthFixed, 0.0, 4);
+            ImGui::TableSetupColumn("Pos.x", ImGuiTableColumnFlags_WidthFixed, 0.0, 5);
+            ImGui::TableSetupColumn("Pos.y", ImGuiTableColumnFlags_WidthFixed, 0.0, 6);
+            ImGui::TableSetupColumn("Pos.z", ImGuiTableColumnFlags_WidthFixed, 0.0, 7);
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableHeadersRow();
+
+            ImGuiListClipper clipper;
+            clipper.Begin(entities.size());
+            while (clipper.Step())
+                for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++)
+                {
+                    auto entity = entities[row_n];
+                    auto entityPos = entity->absolutePosition();
+
+                    ImGui::PushID(entity->runtimeID());
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+
+                    DrawEntityActionButtons(entity, csvFriendly);
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("0x%p", entity);
+                    if (ImGui::IsItemHovered())
+                        DrawCombatDetails(entity);
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%u", entity->runtimeID());
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%s", entity->name().c_str());
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%.3fm", manager.avatar()->distance(entity));
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%.04f", entityPos.x);
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%.04f", entityPos.y);
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%.04f", entityPos.z);
+
+                    ImGui::PopID();
+                }
+            ImGui::EndTable();
+        }
+    }
+
     static void DrawEntitiesData()
     {
         static bool typeFilters[0x63] = {};
@@ -205,196 +494,180 @@ namespace cheat::feature
         static char objectNameFilter[128] = {};
         static float radius = 0.0f;
         static bool useRadius = false;
+        static bool groupByType = true;
+        static int typeFiltersColCount = 5;
 
         static bool checkOnlyShells = false;
         static bool showEmptyTypes = false;
+        static Debug::EntitySortCondition sortCondition = Debug::EntitySortCondition::Distance;
+        static ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyScroll | 
+            ImGuiTabBarFlags_NoCloseWithMiddleMouseButton | ImGuiTabBarFlags_TabListPopupButton;
 
         auto& manager = game::EntityManager::instance();
         auto entities = manager.entities();
+        auto entries = magic_enum::enum_entries<app::EntityType__Enum_1>();
 
-        ImGui::Text("Entity count %d", entities.size());
+        std::vector<std::pair<app::EntityType__Enum_1, std::string_view>> sortedEntries;
+        sortedEntries.insert(sortedEntries.begin(), std::begin(entries), std::end(entries));
+        std::sort(sortedEntries.begin(), sortedEntries.end(), [](auto a1, auto a2) {
+            return a1.second < a2.second;
+            });
 
-        ImGui::Checkbox("## Enable object name filter", &useObjectNameFilter); ImGui::SameLine();
+        ImGuiContext& g = *GImGui;
+        ImGuiIO& io = g.IO;
+
+        ImGui::Text("Entity Count %d", entities.size());
+
+        ImGui::Checkbox("## Enable Object Name Filter", &useObjectNameFilter); ImGui::SameLine();
         if (!useObjectNameFilter)
             ImGui::BeginDisabled();
-        ImGui::InputText("Entity name filter", objectNameFilter, 128);
+        ImGui::InputText("Entity Name Filter", objectNameFilter, 128);
         if (!useObjectNameFilter)
             ImGui::EndDisabled();
 
 
-        ImGui::Checkbox("Filter by radius", &useRadius);
+        ImGui::Checkbox("Filter by Radius", &useRadius);
         if (!useRadius)
             ImGui::BeginDisabled();
             
         ImGui::SameLine();
+        ImGui::PushItemWidth(200.0);
         ImGui::SliderFloat("Radius", &radius, 0.0f, 100.0f);
+        ImGui::PopItemWidth();
         if (!useRadius)
             ImGui::EndDisabled();
-            
-        ImGui::Checkbox("Show empty types", &showEmptyTypes);
-        ImGui::Checkbox("Show only oculi", &checkOnlyShells);
 
-        if (ImGui::TreeNode("Type Filter"))
+        if (ImGui::BeginTabBar("EntityManagerTabBar", tab_bar_flags))
         {
-            if (ImGui::Button("Select all"))
-                std::fill_n(typeFilters, 0x63, true);
-            ImGui::SameLine();
-
-            if (ImGui::Button("Deselect all"))
-                std::fill_n(typeFilters, 0x63, false);
-
-            int columns = 2;
-            if (ImGui::BeginTable("Type filter table", columns, ImGuiTableFlags_NoBordersInBody))
+            if (ImGui::BeginTabItem("Type Filter"))
             {
-                auto entries = magic_enum::enum_entries<app::EntityType__Enum_1>();
-                for (const auto& [value, name] : entries)
+                if (ImGui::Button("Select All"))
+                    std::fill_n(typeFilters, 0x63, true);
+                ImGui::SameLine();
+
+                if (ImGui::Button("Deselect All"))
+                    std::fill_n(typeFilters, 0x63, false);
+                ImGui::SameLine();
+
+                ImGui::PushItemWidth(100.0);
+                ImGui::SliderInt("No. of Columns", &typeFiltersColCount, 2, 5);
+                ImGui::PopItemWidth();
+
+                if (ImGui::BeginTable("Type Filter Table", typeFiltersColCount, ImGuiTableFlags_NoBordersInBody))
                 {
-                    ImGui::TableNextColumn();
-                    ImGui::Checkbox(name.data(), &typeFilters[(int)value]);
+                    for (const auto& [value, name] : sortedEntries)
+                    {
+                        ImGui::TableNextColumn();
+                        ImGui::Checkbox(name.data(), &typeFilters[(int)value]);
+                    }
+                    ImGui::EndTable();
                 }
-                ImGui::EndTable();
+                ImGui::EndTabItem();
             }
 
-            ImGui::TreePop();
-        }
-
-        if (ImGui::TreeNode("Entity List"))
-        {
-            auto entries = magic_enum::enum_entries<app::EntityType__Enum_1>();
-            for (const auto& [currentType, typeName] : entries)
+            if (ImGui::BeginTabItem("Entity List"))
             {
-                if (!typeFilters[int(currentType)])
-                    continue;
+                // Checkbox: Group by Type.
+                ImGui::Checkbox("Group by Type", &groupByType);
+                ImGui::SameLine();
 
-                auto filteredEntities = manager.entities(game::SimpleFilter(currentType));
-                if (!showEmptyTypes && filteredEntities.size() == 0)
-                    continue;
-
-                std::vector<cheat::game::Entity*> validEntities;
-                for (const auto& entity : filteredEntities)
-                {
-                    if (entity == nullptr)
-                        continue;
-
-                    if (entity->type() != currentType)
-                        continue;
-
-                    if (checkOnlyShells && !game::filters::combined::Oculies.IsValid(entity))
-                        continue;
-
-                    if (useObjectNameFilter && entity->name().find(objectNameFilter) == -1)
-                        continue;
-                    
-                    if (useRadius)
-                    {
-                        auto dist  = manager.avatar()->distance(entity);
-                        if (dist > radius)
-                            continue;
-                    }
-
-                    validEntities.push_back(entity);
+                if (groupByType) {
+                    ImGui::Checkbox("Show Empty Types", &showEmptyTypes);
+                    ImGui::SameLine();
                 }
 
-                if (validEntities.size() == 0)
-                    continue;
+                ImGui::Checkbox("Show Only Oculi", &checkOnlyShells);
+                ImGui::SameLine();
 
-                if (ImGui::TreeNode(typeName.data()))
-                {
-                    if (ImGui::Button("Teleport all to me"))
-                    {
-                        for (const auto &entity : validEntities)
-                        {
-                            entity->setRelativePosition(manager.avatar()->relativePosition());
-                        }
-                    }
+                bool sortConditionChanged = ComboEnum("Sort Mode", &sortCondition);
 
-                    ImGui::SameLine();
-                    if (ImGui::Button("Teleport to closest"))
-                    {
-                        cheat::game::Entity *closest = nullptr;
-                        float closestDist = FLT_MAX;
-                        for (const auto &entity : validEntities)
+                if (entities.size() > 0) {
+                    if (groupByType) {
+                        if (ImGui::BeginTabBar("EntityListTabBar", tab_bar_flags))
                         {
-                            auto dist = manager.avatar()->distance(entity);
-                            if (dist < closestDist)
-                            {
-                                closestDist = dist;
-                                closest = entity;
+                            for (const auto& [currentType, typeName] : sortedEntries) {
+                                if (!typeFilters[int(currentType)])
+                                    continue;
+
+                                auto filteredEntities = manager.entities(game::SimpleFilter(currentType));
+                                if (!showEmptyTypes && filteredEntities.size() == 0)
+                                    continue;
+
+                                std::vector<cheat::game::Entity*> validEntities;
+                                for (const auto& entity : filteredEntities)
+                                {
+                                    if (entity == nullptr)
+                                        continue;
+
+                                    if (entity->type() != currentType)
+                                        continue;
+
+                                    if (checkOnlyShells && !game::filters::combined::Oculies.IsValid(entity))
+                                        continue;
+
+                                    if (useObjectNameFilter && entity->name().find(objectNameFilter) == -1)
+                                        continue;
+
+                                    if (useRadius)
+                                    {
+                                        auto dist = manager.avatar()->distance(entity);
+                                        if (dist > radius)
+                                            continue;
+                                    }
+
+                                    validEntities.push_back(entity);
+                                }
+
+                                if (validEntities.size() == 0 && !showEmptyTypes)
+                                    continue;
+
+
+                                if (ImGui::BeginTabItem(typeName.data()))
+                                {
+                                    auto sortedEntities = SortEntities(validEntities, sortCondition);
+                                    DrawEntityGroupActionButtons(sortedEntities, csvFriendly, includeHeaders);
+                                    DrawEntitiesTable(sortedEntities);
+                                    ImGui::EndTabItem();
+                                }
                             }
                         }
-
-                        if (closest != nullptr)
-                        {
-                            if (closestDist > 30.0f)
-                            {
-                                auto& mapTeleport = MapTeleport::GetInstance();
-                                mapTeleport.TeleportTo(closest->absolutePosition());
-                            }
-                            else
-                            {
-                                manager.avatar()->setRelativePosition(closest->relativePosition());
-                            }
-                        }
+                        ImGui::EndTabBar();
                     }
-
-                    ImGui::SameLine();
-                    if (ImGui::Button("Teleport to farthest"))
-                    {
-                        cheat::game::Entity *farthest = nullptr;
-                        float farthestDist = 0.0f;
-                        for (const auto &entity : validEntities)
+                    else {
+                        std::vector<cheat::game::Entity*> validEntities;
+                        for (const auto& entity : entities)
                         {
-                            auto dist = manager.avatar()->distance(entity);
-                            if (dist > farthestDist)
+                            if (entity == nullptr)
+                                continue;
+
+                            if (!typeFilters[int(entity->type())])
+                                continue;
+
+                            if (checkOnlyShells && !game::filters::combined::Oculies.IsValid(entity))
+                                continue;
+
+                            if (useObjectNameFilter && entity->name().find(objectNameFilter) == -1)
+                                continue;
+
+                            if (useRadius)
                             {
-                                farthestDist = dist;
-                                farthest = entity;
-                            }
-                        }
-
-                        if (farthest != nullptr)
-                        {
-                            auto& mapTeleport = MapTeleport::GetInstance();
-                            mapTeleport.TeleportTo(farthest->absolutePosition());
-                        }
-                    }
-
-                    ImGui::SameLine();
-                    if (ImGui::Button("Teleport all to void"))
-                    {
-                        for (const auto &entity : validEntities)
-                        {
-                            entity->setRelativePosition({0, 0, 0});
-                        }
-                    }
-                    
-                    for (const auto& entity : validEntities)
-                    {
-                        uintptr_t id = entity->runtimeID();
-                        if (ImGui::TreeNode(reinterpret_cast<void*>(id), "Entity 0x%p : %u; Dist %.3fm", entity, entity->runtimeID(), manager.avatar()->distance(entity)))
-                        {
-                            if (ImGui::Button("Teleport"))
-                            {
-                                auto& mapTeleport = MapTeleport::GetInstance();
-                                mapTeleport.TeleportTo(entity->absolutePosition());
+                                auto dist = manager.avatar()->distance(entity);
+                                if (dist > radius)
+                                    continue;
                             }
 
-                            ImGui::SameLine();
-                            if (ImGui::Button("Teleport to void"))
-                                entity->setRelativePosition({ 0, 0, 0 });
-
-                            ImGui::SameLine();
-                            if (ImGui::Button("Teleport to me"))
-                                entity->setRelativePosition(manager.avatar()->relativePosition());
-
-                            DrawEntity(entity);
-                            ImGui::TreePop();
+                            validEntities.push_back(entity);
                         }
+
+                        auto sortedEntities = SortEntities(validEntities, sortCondition);
+                        DrawEntityGroupActionButtons(sortedEntities, csvFriendly, includeHeaders);
+                        DrawEntitiesTable(sortedEntities);
+                        ImGui::TreePop();
                     }
-                    ImGui::TreePop();
                 }
+                ImGui::EndTabItem();
             }
-            ImGui::TreePop();
+            ImGui::EndTabBar();
         }
     }
 
@@ -504,6 +777,18 @@ namespace cheat::feature
         ImGui::Text("Level position: %s", il2cppi_to_string(levelPos).c_str());
 
 
+        static app::Vector3 teleportPos = {};
+        ImGui::InputFloat3("Teleport position", reinterpret_cast<float*>(&teleportPos));
+        
+        auto& teleport = MapTeleport::GetInstance();
+        if (ImGui::Button("Map teleport"))
+            teleport.TeleportTo(app::Vector2 { teleportPos.x, teleportPos.y });
+        
+        ImGui::SameLine();
+
+        if (ImGui::Button("World teleport"))
+            teleport.TeleportTo(teleportPos);
+
         if (ImGui::TreeNode("Ground pos info"))
         {
             auto groundNormal = app::Miscs_CalcCurrentGroundNorm(nullptr, avatarPos, nullptr);
@@ -526,6 +811,32 @@ namespace cheat::feature
 
             ImGui::TreePop();
         }
+        if (ImGui::Button("Copy Position"))
+        {
+            auto text = il2cppi_to_string(avatarPos);
+            ImGui::SetClipboardText(text.c_str());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Copy All Info"))
+        {
+            auto text = il2cppi_to_string(avatarPos) + "\n" + il2cppi_to_string(relativePos) + "\n" + il2cppi_to_string(levelPos) + "\n" + il2cppi_to_string(app::Miscs_CalcCurrentGroundNorm(nullptr, avatarPos, nullptr));
+            ImGui::SetClipboardText(text.c_str());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Copy as json"))
+        {
+            std::string text = "\"position\":[";
+            text += std::to_string(avatarPos.x) + ",";
+            text += std::to_string(avatarPos.y) + ",";
+            text += std::to_string(avatarPos.z) + "]";
+            std::string name = "";
+            for (int i = 0; i < 10; i++)
+                name += std::to_string(rand() % 10);
+            text = "\"name\":\"" + name + "\"," + text;
+            text = "{" + text + "}";            
+            ImGui::SetClipboardText(text.c_str());
+        }
+
     }
 
     void DrawMapManager()
@@ -836,10 +1147,10 @@ namespace cheat::feature
             if (!unexplored)
                 continue;
 
-            bool isSelected = esp::render::DrawEntity(entity->name(), entity, ImColor(255, 0, 0, 255));
+            bool isSelected = esp::render::DrawEntity(entity->name(), entity, ImColor(255, 0, 0, 255), ImColor(255, 0, 0, 255));
             if (isSelected && selectedEntity == nullptr)
             {
-                esp::render::DrawEntity(entity->name(), entity, ImColor(0, 255, 0, 255));
+                esp::render::DrawEntity(entity->name(), entity, ImColor(0, 255, 0, 255), ImColor(255, 0, 255, 255));
                 selectedEntity = entity;
             }
         }
@@ -868,7 +1179,7 @@ namespace cheat::feature
                 tempFilter = ItemFilter(selectedEntity->type(), selectedEntity->name());
                 addingFilter = true;
                 tempName = "";
-                renderer::globals::IsInputBlocked = true;
+                renderer::SetInputLock(this, true);
             }
         }
 
@@ -886,14 +1197,14 @@ namespace cheat::feature
             if (ImGui::IsKeyPressed(ImGuiKey_Enter, false))
             {
                 simpleFilters[fmt::format("{}::{}", tempSectionName, tempName)] = tempFilter;
-                renderer::globals::IsInputBlocked = false;
+                renderer::SetInputLock(this, false);
                 addingFilter = false;
                 updated = true;
             }
 
 			if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
 			{
-				renderer::globals::IsInputBlocked = false;
+                renderer::SetInputLock(this, false);
 				addingFilter = false;
 			}
         }
@@ -902,367 +1213,47 @@ namespace cheat::feature
             FiltetItemPickerSave();
 	}
 
-	static std::vector<std::string> iconNames = {
-		"StatueofTheSeven",
-			"TeleportWaypoint",
-			"Domain",
-			"FrostbearingTree",
-			"WaveriderWaypointCannotTeleport",
-			"GlimmeringBeaconCannotTeleport",
-			"SacredSakura",
-			"TheCruxTheAlcor",
-			"JadeChamber",
-			"StatueoftheVassals",
-			"CommonChest",
-			"ExquisiteChest",
-			"PreciousChest",
-			"LuxuriousChest",
-			"RemarkableChest",
-			"Anemoculus",
-			"Geoculus",
-			"CrimsonAgate",
-			"EchoingConch",
-			"Electroculus",
-			"KeySigilI",
-			"KeySigilII",
-			"KeySigilIII",
-			"KeySigilIV",
-			"KeySigilV",
-			"Lumenspar",
-			"Seelie",
-			"WarmingSeelie",
-			"TimeTrialChallenge",
-			"WindmillMechanism",
-			"FloatingAnemoSlime",
-			"PressurePlate",
-			"BloattyFloatty",
-			"BuriedChest",
-			"ElementalMonument",
-			"TorchPuzzle",
-			"LargeRockPile",
-			"SmallRockPile",
-			"HarvestablePlant",
-			"SealedChest",
-			"Geogranum",
-			"MiniPuzzle",
-			"EnemiesFirstTimeVictory",
-			"StormBarrier",
-			"AncientRime",
-			"EightStoneTablets",
-			"ThreeBoxes",
-			"LightningStrikeProbe",
-			"SwordHilt",
-			"MistBubble",
-			"Mural",
-			"ElectroSeelie",
-			"CubeDevices",
-			"ElectricConduction",
-			"LightUpTilePuzzle",
-			"BakeDanuki",
-			"SealLocation",
-			"SealLocationII",
-			"SealLocationIII",
-			"SealLocationIV",
-			"SealLocationV",
-			"LightGuidingCeremony",
-			"SentouTrial",
-			"DamagedStoneSlate",
-			"UniqueRocks",
-			"DoNotPublish",
-			"Hilichurl",
-			"Samachurl",
-			"TreasureHoarder",
-			"HilichurlShooter",
-			"Slime",
-			"Nobushi",
-			"Specter",
-			"FatuiSkirmisher",
-			"Whopperflower",
-			"PyroWhopperflower",
-			"ElectroWhopperflower",
-			"Ochimusha",
-			"FloatingHydroFungus",
-			"Mitachurl",
-			"BlazingAxeMitachurl",
-			"WoodenShieldwallMitachurl",
-			"RockShieldwallMitachurl",
-			"CracklingAxeMitachurl",
-			"AbyssMage",
-			"PyroAbyssMage",
-			"HydroAbyssMage",
-			"FatuiAgent",
-			"FatuiCicinMage",
-			"RuinSentinel",
-			"RuinGrader",
-			"RuinGuard",
-			"RuinHunter",
-			"GeovishapHatchling",
-			"Geovishap",
-			"FrostarmLawachurl",
-			"HilichurlChieftain",
-			"TheGreatSnowboarKing",
-			"EyeoftheStorm",
-			"ElectroAbyssMage",
-			"ThunderhelmLawachurl",
-			"FatuiMirrorMaiden",
-			"WolvesoftheRift",
-			"AbyssHerald",
-			"BathysmalVishap",
-			"ShadowyHusk",
-			"AnemoHypostasis",
-			"CryoRegisvine",
-			"LupusBoreas",
-			"ElectroHypostasis",
-			"Oceanid",
-			"PyroRegisvine",
-			"GeoHypostasis",
-			"PrimoGeovishap",
-			"CryoHypostasis",
-			"MaguuKenki",
-			"PyroHypostasis",
-			"PerpetualMechanicalArray",
-			"HydroHypostasis",
-			"ThunderManifestation",
-			"GoldenWolflord",
-			"BathysmalVishapHerd",
-			"RuinSerpent",
-			"Valberry",
-			"JueyunChili",
-			"CallaLily",
-			"Qingxin",
-			"SmallLampGrass",
-			"Violetgrass",
-			"Cecilia",
-			"SilkFlower",
-			"DandelionSeed",
-			"GlazeLily",
-			"PhilanemoMushroom",
-			"CorLapis",
-			"Wolfhook",
-			"NoctilucousJade",
-			"WindwheelAster",
-			"Starconch",
-			"SeaGanoderma",
-			"Onikabuto",
-			"NakuWeed",
-			"Dendrobium",
-			"SakuraBloom",
-			"CrystalMarrow",
-			"SangoPearl",
-			"AmakumoFruit",
-			"FluorescentFungus",
-			"MistFlowerCorolla",
-			"FlamingFlowerStamen",
-			"ElectroCrystal",
-			"BambooShoot",
-			"LoachPearl",
-			"CrystalCore",
-			"ButterflyWings",
-			"Snapdragon",
-			"Horsetail",
-			"Frog",
-			"LizardTail",
-			"Crab",
-			"RawMeat",
-			"Fish",
-			"Fowl",
-			"Matsutake",
-			"Pinecone",
-			"BirdEgg",
-			"StrangeTooth",
-			"ChilledMeat",
-			"SweetFlower",
-			"Mint",
-			"Mushroom",
-			"Berry",
-			"Sunsettia",
-			"Apple",
-			"LotusHead",
-			"Carrot",
-			"Radish",
-			"LuminescentSpine",
-			"LavenderMelon",
-			"Seagrass",
-			"UnagiMeat",
-			"TokoyoLegume",
-			"AphotiumOre",
-			"Starshroom",
-			"RadiantSpincrystal",
-			"ArchaicStone",
-			"WhitePigeon",
-			"PaleRedCrab",
-			"EmeraldFinch",
-			"CryoCrystalfly",
-			"RedFinnedUnagi",
-			"CrimsonFinch",
-			"CrimsonflankPigeon",
-			"AnemoCrystalfly",
-			"OceanCrab",
-			"BlackKingPigeon",
-			"CrimsonFox",
-			"RedHornedLizard",
-			"RedTailedWeasel",
-			"Kitsune",
-			"GoldenCrab",
-			"GraySnowCat",
-			"GraywingPigeon",
-			"GeneralCrab",
-			"GoldenLoach",
-			"GoldenFinch",
-			"VioletIbis",
-			"Sapphire",
-			"BlueHornedLizard",
-			"BlueFrog",
-			"ElectroCrystalfly",
-			"BrightcrownPigeon",
-			"SunsetLoach",
-			"GreenHornedLizard",
-			"MudFrog",
-			"Frog",
-			"SunnyLoach",
-			"MarrowLizard",
-			"Squirrel",
-			"SunCrab",
-			"AdornedUnagi",
-			"BootWeasel",
-			"SnowFox",
-			"SnowFinch",
-			"SnowWeasel",
-			"Snowboar",
-			"Crow",
-			"GeoCrystalfly",
-			"DeepSeaUnagi",
-			"CoralButterfly",
-			"LucklightFly",
-			"BluethunderWeasel",
-			"Electrogranum",
-			"PhaseGate",
-			"Stormstone",
-			"MysteriousCarvings",
-			"Pot",
-			"CampfireTorch",
-			"RuinBrazier",
-			"SeelieCourt",
-			"EnkanomiyaPhaseGate",
-			"DayNightSwitchingMechanism",
-			"PlacesofEssenceWorship",
-			"TriangularMechanism",
-			"EnergyPoint",
-			"Lumenlamp",
-			"Mondstadt",
-			"Liyue",
-			"InazumaShrineofDepths",
-			"FishingPoint",
-			"Medaka",
-			"GlazeMedaka",
-			"SweetFlowerMedaka",
-			"AizenMedaka",
-			"Dawncatcher",
-			"Crystalfish",
-			"LungedStickleback",
-			"Betta",
-			"VenomspineFish",
-			"AkaiMaou",
-			"Snowstrider",
-			"GoldenKoi",
-			"RustyKoi",
-			"BrownShirakodai",
-			"PurpleShirakodai",
-			"TeaColoredShirakodai",
-			"AbidingAngelfish",
-			"RaimeiAngelfish",
-			"Pufferfish",
-			"BitterPufferfish",
-			"FormaloRay",
-			"DivdaRay",
-			"WhiteIronChunk",
-			"CrystalChunk",
-			"MagicalCrystalChunk",
-			"Starsilver",
-			"ScarletQuartz",
-			"IronChunk",
-			"AmethystLump",
-			"UnusualHilichurl",
-			"Viewpoint",
-			"WorldQuests",
-			"Book",
-			"Recipe",
-			"Artifact",
-			"Mora",
-			"GeoSigil",
-			"WoodenCrate",
-			"CookingIngredient",
-			"MysteriousConch",
-			"Weapon",
-			"Ores",
-			"SmashedStone",
-			"RockPile",
-			"Merchant",
-			"KidKujirai",
-			"Dandy",
-			"Illusion",
-			"FirWood",
-			"PineWood",
-			"BambooSegment",
-			"SandbearerWood",
-			"BirchWood",
-			"CuihuaWood",
-			"FragrantCedarWood",
-			"OtogiWood",
-			"MapleWood",
-			"AraliaWood",
-			"YumemiruWood",
-			"PaintedWall",
-			"HarpastumChest",
-			"Mural"
-    };
 
-    void DrawIcons()
+    void DrawFPSGraph()
     {
-		int i = 0;
-		for (auto& name : iconNames)
-		{
-            i++;
-			auto imageInfo = ImageLoader::GetImage(name);
-			if (imageInfo)
-				ImGui::Image(imageInfo->textureID, imageInfo->size);
-			if (i % 15 != 0)
-				ImGui::SameLine();
-		}
-        ImGui::Spacing();
+        static float values[120] = {0};
+        static int values_offset = 0;
+        values[values_offset++] = ImGui::GetIO().Framerate;
+        if (values_offset >= IM_ARRAYSIZE(values))
+            values_offset = 0;
+        ImGui::PlotLines("", values, IM_ARRAYSIZE(values), values_offset, "", 0.0f, 100.0f, ImVec2(0, 80));
+        ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
+        float avg_fps = 0.0f;
+        for (int i = 0; i < IM_ARRAYSIZE(values); i++)
+            avg_fps += values[i];
+        avg_fps /= IM_ARRAYSIZE(values);
+        ImGui::Text("%.1f FPS (avg)", avg_fps);
     }
 
-	void Debug::DrawMain()
+    void Debug::DrawMain()
 	{
-        if (ImGui::CollapsingHeader("Icons"))
-            DrawIcons();
-
-        if (ImGui::CollapsingHeader("Filter item picker"))
-            DrawFilterItemPicker();
-        
-        if (ImGui::CollapsingHeader("ScenePropManager"))
-            DrawScenePropManager();
-
-		if (ImGui::CollapsingHeader("Chest plugin", ImGuiTreeNodeFlags_None))
-			DrawChestPlugin();
-
-		if (ImGui::CollapsingHeader("Imgui focus test", ImGuiTreeNodeFlags_None))
-            DrawImGuiFocusTest();
-
-		if (ImGui::CollapsingHeader("Scene id info", ImGuiTreeNodeFlags_None))
-            DrawMapManager();
-
-		if (ImGui::CollapsingHeader("Entity manager", ImGuiTreeNodeFlags_None))
+		if (ImGui::CollapsingHeader("Entity Manager", ImGuiTreeNodeFlags_None))
 			DrawEntitiesData();
 
 		if (ImGui::CollapsingHeader("Position", ImGuiTreeNodeFlags_None))
+		{
+			DrawMapManager();
 			DrawPositionInfo();
+		}
 
-		if (ImGui::CollapsingHeader("Interaction manager", ImGuiTreeNodeFlags_None))
-			DrawInteractionManagerInfo();
+        //if (ImGui::CollapsingHeader("Filter item picker"))
+        //    DrawFilterItemPicker();
 
-		if (ImGui::CollapsingHeader("Map manager", ImGuiTreeNodeFlags_None))
+		//if (ImGui::CollapsingHeader("Chest plugin", ImGuiTreeNodeFlags_None))
+		//	DrawChestPlugin();
+
+		//if (ImGui::CollapsingHeader("Interaction manager", ImGuiTreeNodeFlags_None))
+		//	DrawInteractionManagerInfo();
+
+		if (ImGui::CollapsingHeader("Map Manager", ImGuiTreeNodeFlags_None))
 			DrawManagerData();
+        if (ImGui::CollapsingHeader("FPS Graph", ImGuiTreeNodeFlags_None))
+            DrawFPSGraph();
 	}
 
 	bool Debug::NeedInfoDraw() const

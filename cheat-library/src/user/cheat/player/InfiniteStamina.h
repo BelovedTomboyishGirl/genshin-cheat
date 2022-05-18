@@ -1,6 +1,6 @@
 #pragma once
 #include <cheat-base/cheat/Feature.h>
-#include <cheat-base/config/Config.h>
+#include <cheat-base/config/config.h>
 
 #include <il2cpp-appdata.h>
 
@@ -10,8 +10,8 @@ namespace cheat::feature
 	class InfiniteStamina : public Feature
     {
 	public:
-		config::field::ToggleField m_Enabled;
-		config::field::BaseField<bool> m_PacketReplacement;
+		config::Field<config::Toggle<Hotkey>> f_Enabled;
+		config::Field<bool> f_PacketReplacement;
 
 		static InfiniteStamina& GetInstance();
 
@@ -20,12 +20,14 @@ namespace cheat::feature
 
 		virtual bool NeedStatusDraw() const override;
 		void DrawStatus() override;
-	
-		bool OnPropertySet(app::PropType__Enum propType);
-		void OnMoveSync(uint32_t entityId, app::MotionInfo* syncInfo);
 
 	private:
 		InfiniteStamina();
+
+		bool OnPropertySet(app::PropType__Enum propType);
+		void OnMoveSync(uint32_t entityId, app::MotionInfo* syncInfo);
+
+		static void DataItem_HandleNormalProp_Hook(app::DataItem* __this, uint32_t type, int64_t value, app::DataPropOp__Enum state, MethodInfo* method);
 	};
 }
 

@@ -3418,6 +3418,18 @@ namespace app {
         float z;
     };
 
+    struct Vector3d {
+        double x;
+        double y;
+        double z;
+    };
+
+    struct Vector3d_1 {
+        double x;
+        double y;
+        double z;
+    };
+
     struct LuaAbilityParam__VTable {
         VirtualInvokeData Equals;
         VirtualInvokeData Finalize;
@@ -4686,6 +4698,11 @@ namespace app {
 
     struct Nullable_1_UInt32_ {
         uint32_t value;
+        bool has_value;
+    };
+
+    struct Nullable_1_Double_ {
+        double value;
         bool has_value;
     };
 
@@ -7533,6 +7550,11 @@ namespace app {
         struct Collider* m_Collider;
     };
 
+    struct Ray {
+        struct Vector3 m_Origin;
+        struct Vector3 m_Direction;
+    };
+
     struct Nullable_1_Boolean_ {
         bool value;
         bool has_value;
@@ -8875,7 +8897,7 @@ namespace app {
         struct HashSet_1_MoleMole_BaseContext_* BCPDECEFFMF;
         struct UIPlatformConfig* platformConfig;
         uint32_t _curProfileHandle;
-        struct Canvas* _sceneCanvas;
+        void* _sceneCanvas;
         struct Camera* _uiCamera;
     };
 
@@ -8945,6 +8967,67 @@ namespace app {
         // struct DPLADHCBJOP__Fields fields;
     };
 
+    struct LevelSceneElementViewPlugin__VTable
+    {
+        VirtualInvokeData Equals;
+        VirtualInvokeData Finalize;
+        VirtualInvokeData GetHashCode;
+        VirtualInvokeData ToString;
+        VirtualInvokeData get_listenEventValid;
+        VirtualInvokeData set_listenEventValid;
+        VirtualInvokeData ListenEvent;
+        VirtualInvokeData CanHandleEvent;
+        VirtualInvokeData get_metaTypeID;
+        VirtualInvokeData get_isForceFullTick;
+        VirtualInvokeData get_canBeTickedReadonly;
+        VirtualInvokeData get_metaTypeID_1;
+        VirtualInvokeData Init;
+        VirtualInvokeData OnEntityReady;
+        VirtualInvokeData Retarget;
+        VirtualInvokeData ReInit;
+        VirtualInvokeData PostReInit;
+        VirtualInvokeData Clear;
+        VirtualInvokeData ClearInThread;
+        VirtualInvokeData OnEnable;
+        VirtualInvokeData OnDisable;
+        VirtualInvokeData Tick;
+        VirtualInvokeData LateTick;
+        VirtualInvokeData Destroy;
+        VirtualInvokeData OnEvent;
+        VirtualInvokeData OnRemoteEvtBeingHit;
+        VirtualInvokeData OnEventResolved;
+        VirtualInvokeData ListenEvent_1;
+        VirtualInvokeData GetEntity;
+    };
+
+    struct LevelSceneElementViewPlugin__Class
+    {
+        Il2CppClass_0 _0;
+        Il2CppRuntimeInterfaceOffsetPair* interfaceOffsets;
+        struct LevelSceneElementViewPlugin__StaticFields* static_fields;
+        const Il2CppRGCTXData* rgctx_data;
+        Il2CppClass_1 _1;
+        struct LevelSceneElementViewPlugin__VTable vtable;
+    };
+
+    struct LevelSceneElementViewPlugin__Fields
+    {
+        struct BaseComponentPlugin__Fields _;
+        bool elementalSightActivated;
+        float JJLPILGECJP;
+        struct ElementView* CJLJMMNOFBP;
+        float GBEPFGGJBOF;
+        struct Action* DKFFCMKNNGC;
+        struct Action* NIBNGEAILBH;
+    };
+
+    struct LevelSceneElementViewPlugin
+    {
+        struct LevelSceneElementViewPlugin__Class* klass;
+        MonitorData* monitor;
+        struct LevelSceneElementViewPlugin__Fields fields;
+    };
+
     struct Nullable_1_Single_ {
         float value;
         bool has_value;
@@ -9002,6 +9085,64 @@ namespace app {
         struct EvtCrash__Class* klass;
         MonitorData* monitor;
         struct EvtCrash__Fields fields;
+    };
+
+    struct MoveSyncTask {
+        struct Vector3 position;
+        struct Vector3 velocity;
+        struct Vector3 forward;
+        struct Vector3 up;
+        struct Quaternion rotation;
+        int32_t motion;
+        int32_t paramNumber;
+        struct Vector3 param0;
+        struct Vector3 param1;
+        struct Vector3 param2;
+        struct Vector3 param3;
+        uint32_t time;
+        uint32_t reliableSeq;
+        uint32_t clientSequenceId;
+        uint32_t subSequenceId;
+        bool reliable;
+        bool isFake;
+        struct Vector3 refPosition;
+        uint32_t refEntityId;
+        uint32_t refEntityTimestamp;
+        bool hasValue;
+        struct Vector3 positionRS;
+        struct Vector3 positionRSLocal;
+        uint32_t randomDelay;
+        int32_t frameCountWhenAddTask;
+    };
+
+    struct BaseMoveSyncPlugin__Fields {
+        struct BaseComponentPlugin__Fields _;
+        struct JEACJCEKBMO__Array* JFHIPAJNCEH;
+        struct MoveSyncTask moveSyncTask;
+        int32_t EBAFCLPDNOA;
+        struct PAGLNCJFJAB* EGOGHHCEKBI;
+        uint32_t BMEKGDMGLDM;
+        float BPNLDBMLCPG;
+        int32_t IMGAJKMBICM;
+        int32_t JFNJPLBNEAH;
+        uint64_t LDHCFEHMENK;
+        struct MoveSyncTask PKJLBFAGDPG;
+        float KHDFGOBLNOH;
+        bool BAHIDGDKDPG;
+        bool MPNMLBJNIJK;
+        float BPNMMCBBPDO;
+        uint32_t DANEEGOIAOE;
+        struct HBGKJGFOBDG* HHAPKOKPBPN;
+        bool KCODNABDGKC;
+        uint64_t PHBBAMKNKEH;
+        uint32_t JEKLOEMBBJB;
+        struct MoveSyncTask GPOABHBBEGL;
+    };
+
+    struct BaseMoveSyncPlugin {
+        struct BaseMoveSyncPlugin__Class* klass;
+        MonitorData* monitor;
+        struct BaseMoveSyncPlugin__Fields fields;
     };
 
     struct __declspec(align(8)) ADOCDLJKPGF__Fields {
@@ -9117,9 +9258,95 @@ namespace app {
 		struct Dictionary_2_System_UInt32_Dictionary_2_System_Int32_List_1_CFKBGDNLDGP_* MFEPPBMCAGP;
 	};
 
+    enum class NLBBPJJMEGB__Enum : int32_t {
+        Normal = 0x00000000,
+        Cold = 0x00000001,
+        Hot = 0x00000002,
+        ColdMonster = 0x00000003,
+        HotMonster = 0x00000004,
+        SeaMist = 0x00000005,
+        HeroCourse = 0x00000006,
+        SeaMistSurrounding = 0x00000007,
+        TatariRegion = 0x00000008,
+        TransClimate = 0x00000009,
+        SeiraiStorm = 0x0000000a,
+        TsurumiMist = 0x0000000b,
+        TsurumiThunder = 0x0000000c,
+        TsurumiRegionalMist = 0x0000000d,
+        Count = 0x0000000e,
+    };
+
+
+    struct __declspec(align(8)) DataItem__Fields {
+        uint32_t _entityId_k__BackingField;
+        struct Dictionary_2_KFEENBPGJJA_JMOFLAAALOE_* _cacheNormalPropValueDic;
+        struct Dictionary_2_KFEENBPGJJA_IPEPPEAIJEC_* _cacheFightPropValueDic;
+        bool _isToBeRemoved;
+        bool _unCacheEntity;
+        NLBBPJJMEGB__Enum climateType;
+        uint32_t climateAreaID;
+    };
+
+    struct DataItem {
+        struct DataItem__Class* klass;
+        MonitorData* monitor;
+        struct DataItem__Fields fields;
+    };
+
+
+    struct BEKFICFOHKL__Fields {
+        struct DataItem__Fields _;
+        uint32_t accountType;
+        uint32_t channelID;
+        bool isGuest;
+        struct String* accountUid;
+        struct String* accountToken;
+        uint32_t userId;
+        uint32_t regionId;
+        struct String* deviceUUID;
+        struct String* onlineID;
+        struct String* psnID;
+        uint32_t nameCardID;
+        struct String* token;
+        struct String* nickName;
+        uint64_t chooseAvatarGuid;
+        uint64_t lastChangeAvatarTime;
+        uint32_t level;
+        uint32_t exp;
+        uint32_t maxExp;
+        uint32_t fullCost;
+        bool isFirstLogin;
+        bool isFirstShare;
+        uint32_t cookGrade;
+        struct Dictionary_2_System_UInt32_CJJDPGJPGJB_* cookRecipeDic;
+        struct List_1_System_UInt32_* compoundList;
+        struct Dictionary_2_System_UInt32_HBAOILFEMEH_* compoundItemDic;
+        struct List_1_System_UInt32_* rewardLevelList;
+        struct Dictionary_2_System_UInt32_System_Int32_* newCombineDic;
+        struct Dictionary_2_System_UInt32_System_Int32_* newForgeDic;
+        uint32_t currForgePoint;
+        struct HashSet_1_System_UInt32_* unlockedCombineSet;
+        struct HashSet_1_System_UInt32_* unlockedForgetSet;
+        //struct IIJPJKLFKBK headPortrait;
+        //struct String* signature;
+        //struct isShowAvatar birthday;
+        //bool IPDELLPNFLE;
+        //struct List_1_System_UInt32_* showAvatarIdList;
+        //struct List_1_System_UInt32_* showNameCardIdList;
+        //struct List_1_System_UInt32_* ownedFlyCloakList;
+        //struct List_1_System_UInt32_* ownedCostumeList;
+        //uint32_t curAvatarEntityID;
+    };
+
+	struct AccountDataItem {
+        struct AccountDataItem__Class* klass;
+        MonitorData* monitor;
+        struct BEKFICFOHKL__Fields fields;
+    };
+
 	struct NEOGDEDNDHF__Fields {
 		struct GMNHONOINDB__Fields _;
-		struct BEKFICFOHKL* _accountData_k__BackingField;
+		struct AccountDataItem* _accountData_k__BackingField;
 		struct HBFICKPEILE* openState;
 		uint32_t curWorldType;
 		uint32_t curSceneID;
@@ -9723,6 +9950,885 @@ namespace app {
 		MonitorData* monitor;
 		struct Behaviour__Fields fields;
 	};
+
+	struct IGKEDHHIDMA__Fields
+	{
+		struct BasePageContext__Fields _;
+		float EnterCountDown;
+		struct String* CountDownPrefab;
+		struct GameObject* _CountDownGo;
+		struct MonoInLevelProgressBar* _script;
+		float _countDownTime;
+		uint32_t _handle;
+		struct Image* _fillImage;
+		struct Coroutine* countCoroutine;
+		bool _panelActive;
+		bool _countDownAcitve;
+		bool _isEndingCountdown;
+		struct Nullable_1_MoleMole_AsyncJob_ _countDownLoadingJob;
+		int32_t _versusBattleTotle;
+		struct CNCFAOMBJIP* _countDown;
+		struct EAPNPEGAAII* _inteePanelCom;
+		struct AJEAPLJOAON* _directionIndicator;
+		struct ELCMPFBKPBA* _targetIndicator;
+		struct GDIAIBAJMDC* _gadgetIndicator;
+		struct OOKIJPIAEGD* _navigationIndicator;
+		struct LNBLFPFIGFF* _galleryPlay;
+		struct BPJHCKHOCIO* _quickChangeTeamCom;
+		struct MonoParticleDamageTextContainer* _damageParticleTextContainer;
+		void* _pageMono;
+		struct MonoInLevelLimitRegion* _monoBlackMask;
+		struct BEJJFHHKIBA* _newItemDialog;
+		struct NBMGJNBMIOA* _specialItemDialog;
+		struct MLHLCCGMGOP* _galleryDialog;
+		struct GJPBGPGKGNN* _localAvatar;
+		struct Button* _transBtn;
+        int32_t _lastLayoutVersion;
+		bool _canChangeMoveType;
+		bool _autoOpenedDungeonFactor;
+		bool _forbiddenToggleMoveByState;
+		bool _isPaimonNormal;
+		bool _isChatEnabled;
+		struct MBKDBIHKAGD* chatBubbleDisplayer;
+		bool _chatPanelResolved;
+		bool _mapActive;
+		bool _transAppear;
+		struct DateTime _rttRefreshTime;
+		struct Color _rttGreen;
+		struct Color _rttYellow;
+		struct Color _rttRed;
+		uint32_t _rttLowLimit;
+		uint32_t _rttMidLimit;
+		uint32_t _rttHighLimit;
+		uint32_t _rttRefreshDeltaTime;
+		struct String* KMBJFGJMNMH;
+		struct Coroutine* _dungeonItemCoroutine;
+		bool _isOpenInputContainer;
+		bool _isOpenActionContainer;
+		bool _isOpenMessageContainer;
+		uint32_t _lastTimeLeft;
+		uint32_t _lastCount;
+        int32_t combatBarType;
+		struct List_1_EJFOBCPHDFP_* _saveCombatsData;
+		struct GameObject* m_LightingInfoUI;
+		struct GameObject* m_TreeOverdrawInfoUI;
+		struct GameObject* m_QuickRenderMenu;
+		bool _inShakeOff;
+		struct OKGLPFDFCPK* _challengeConfig;
+		struct Coroutine* _blossomBeginCoroutine;
+		struct MonoTowerHintText* _hintPage;
+		struct Coroutine* fleurFairDungeonStartAnimCoroutine;
+		float _curFleurFairDungeonBarValue;
+		bool _isInFlightChallenge;
+		bool _isShowFlightChallengeHint;
+		struct OKGLPFDFCPK* _flightSubChallengeConfig;
+		bool _waitStart;
+		struct Coroutine* _startCoroutine;
+		struct Coroutine* _uidCoroutine;
+		bool _playUidOpEnd;
+		uint32_t _curStage;
+		struct HDMIAHJPLCJ* _combat;
+		struct Coroutine* _altPressCoroutine;
+		struct Coroutine* _cameraLookEndCoroutine;
+		bool _disableSkillInput;
+		bool _disableMoveInput;
+		bool _disableActionInput;
+		bool _mapInfoVisible;
+		bool _chatInfoVisible;
+		struct Dictionary_2_System_Int32_HashSet_1_System_Int32_* _uiDisableStateDic;
+		struct Dictionary_2_System_Int32_HashSet_1_System_Int32_* _inputEnableStateDic;
+		struct HashSet_1_System_Int32_* _mainPageDisableSet;
+		struct DODHAKHMNDK* zoomSmoother;
+		struct KOOFBIDHECP* _virtualDialDialog;
+		struct NOIFCOKPBBI* AEKMPNKPJCK;
+		int32_t _prevState;
+		bool _changeWithSkill;
+		struct DINCOJBJLML* _messageDialog;
+		bool showHazadousWarning;
+		struct List_1_DINCOJBJLML_PGCPDEKPCKM_* HGLADPDCIEO;
+		struct IKECDNKKMJM* _questHintDialog;
+		struct FBCIMPOLFEI* _questProgressDialog;
+		struct ECDKKGFNMNF* _rewardDialogGeneral;
+		struct ECDKKGFNMNF* _rewardDialogQuest;
+		struct ECDKKGFNMNF* _rewardDialogDailyTask;
+		struct ECDKKGFNMNF* _rewardDialogRandTask;
+		struct ECDKKGFNMNF* _rewardDialogGather;
+		struct GCMPGGFPHDJ* _deblockingDialog;
+		struct OEBIPCONBLK* _taskTitleDialog;
+		struct Coroutine* _templateReminderCoroutine;
+		struct PCIKGHOIFOO* _reminderDialog;
+		bool HICPKFKAOCK;
+		struct Nullable_1_UnityEngine_Vector3_ _targetPos;
+		int32_t _lastIntDst;
+		bool _pushtipsShowed;
+		bool BPENOEMPIBP;
+		uint32_t APGMBPPFPDH;
+		struct PGGJOHPFKCO* HIJIBGFKGAC;
+		bool NLNAHEMFIDM;
+		struct MonoMiniMap* _miniMap;
+		struct MonoMapFogAreaGrp* _miniMapFog;
+		bool _mapImgReady;
+		uint32_t _mapImageHandle;
+		uint32_t _mapFogHandle;
+		struct Dictionary_2_System_Int32_Dictionary_2_System_UInt32_MoleMole_MonoMapMark_* _marks;
+		struct HashSet_1_MoleMole_MonoMapMark_* _activeMarks;
+		struct HashSet_1_MoleMole_MonoMapMark_* _candidateMarks;
+		struct Vector2 _searchRegionCenter;
+		struct MonoMapMark* _mapMarkPrefab;
+		uint32_t _sceneID;
+		float _sqrUpdateSearchDistance;
+		float _sqrSearchRegionRadius;
+		struct GameObject* _mapImageInst;
+		float _miniMapScale;
+		float _defaultMiniMapScale;
+		struct RectTransform* _miniMapBackImg;
+		struct MonoLevelMap* _levelMap;
+		struct RectTransform* _levelMapTrans;
+		struct Vector2 rectSize;
+		struct Coroutine* _setScaleCoroutine;
+		float _currTime;
+		float _tweenTime;
+		float _targetScale;
+		float _preScale;
+		bool _forceUpdateMark;
+		struct Vector3 _lastPlayerPos;
+		float _lastCameraAngle;
+		float _lastAvatarAngle;
+		struct BaseEntity* _teamEntity;
+		struct Transform* _cameraTrans;
+		float _markContainerLocalEulerAngleZ;
+		bool updateCamera;
+		struct Vector3 newEulerAngle;
+		int32_t _lastFixType;
+		struct HashSet_1_System_UInt32_* _fakemarkTobeRemoved;
+		bool _mapBackRotateDirty;
+		bool _mapContainerDiry;
+		bool _isSignalActive;
+		float _checkInterval;
+		float _checkTime;
+		float _lastDistance;
+		float _audioTime;
+		float _audioPeriod;
+		uint32_t _signalAudioID;
+		struct String* miniMapQuestMarkPath;
+		struct Dictionary_2_System_UInt32_MoleMole_MonoMapMark_* _fakeMarkDic;
+		uint32_t _fakeMarkHandle;
+		float _sightWorldRadius_k__BackingField;
+		float _markReachToUIRatio_k__BackingField;
+		float _worldUnitPerPixel_k__BackingField;
+		bool _questEnable;
+		struct Coroutine* _spPresstartCoroutine;
+		uint64_t _currentAvatarID;
+		struct List_1_MoleMole_MonoTeamBtn_* _buttonList;
+		struct List_1_System_UInt64_* _avatarGuidList;
+		bool _showChangeAvatarCDText;
+		int32_t _count;
+		struct List_1_MoleMole_MonoMPTeamBtn_* teamBtnList;
+		bool _hideTeamBtnName;
+		float HFFMDBPJNCL;
+		struct Dictionary_2_System_Int32_Queue_1_MoleMole_BaseContext_* _widgetQueueDic;
+		float DELAY_TIME;
+		struct Action* _onSetActiveHandler;
+	};
+
+	struct InLevelMainPageContext
+	{
+		struct IGKEDHHIDMA__Class* klass;
+		MonitorData* monitor;
+		struct IGKEDHHIDMA__Fields fields;
+	};
+
+	struct MonoMiniMap__Fields {
+		struct MonoBehaviour__Fields _;
+		struct Button* _actionButton;
+		struct RectTransform* _grpMap;
+		struct RectTransform* _grpMapBack;
+		struct RectTransform* _markContainer;
+		struct RectTransform* _unusedMarkContainer;
+		struct RectTransform* _maskedMarkLayer;
+		struct RectTransform__Array* _markContainerLayers;
+		struct RectTransform* _localAvatarMark;
+		struct RectTransform* _sightFanMark;
+		struct RectTransform* _directionMark;
+		struct RectTransform* _grpMiniBackRotate;
+		struct Image* _imgMiniBack;
+		float _areaMinDistance;
+		struct Queue_1_MoleMole_MonoMapMark_* _unusedMarkPool;
+		struct MonoMapMark* _markPrefab;
+		struct RectTransform* _hazardousArea;
+        float _warningCooldown;
+        float _warningTime;
+        bool _isWarning;
+		struct InLevelMainPageContext* context;
+	};
+
+	struct MonoMiniMap {
+		struct MonoMiniMap__Class* klass;
+		MonitorData* monitor;
+		struct MonoMiniMap__Fields fields;
+	};
+
+	struct RectTransform__Fields {
+		struct Transform__Fields _;
+	};
+
+	struct RectTransform {
+		struct RectTransform__Class* klass;
+		MonitorData* monitor;
+		struct RectTransform__Fields fields;
+	};
+
+	struct Quaternion__Boxed {
+		struct Quaternion__Class* klass;
+		MonitorData* monitor;
+		struct Quaternion fields;
+	};
+
+	enum class InteractType__Enum : int32_t {
+		InteractNone = 0x00000000,
+		InteractPickItem = 0x00000001,
+		InteractGather = 0x00000002,
+		InteractOpenChest = 0x00000003,
+		InteractOpenStatue = 0x00000004,
+		InteractConsum = 0x00000005,
+		InteractMpPlayReward = 0x00000006,
+		InteractView = 0x00000007,
+		InteractGeneralReward = 0x00000008,
+		InteractMiracleRing = 0x00000009,
+		InteractFoundation = 0x0000000a,
+		InteractEchoShell = 0x0000000b,
+		InteractHomeGather = 0x0000000c,
+		InteractEnvAnimal = 0x0000000d,
+		InteractQuestGadget = 0x0000000e,
+        LGHNPMNCLLI = 0x0000000f,
+	};
+
+	enum InterOpType__Enum {
+		InterOpType__Enum_InterOpFinish = 0x00000000,
+		InterOpType__Enum_InterOpStart = 0x00000001,
+	};
+
+	struct GadgetInteractRsp__Fields {
+		struct MessageBase_1__Fields _;
+		int32_t retcode_;
+		uint32_t gadgetEntityId_;
+		InteractType__Enum interactType_;
+        InterOpType__Enum opType_;
+		uint32_t gadgetId_;
+	};
+
+	struct GadgetInteractRsp {
+		struct GadgetInteractRsp__Class* klass;
+		MonitorData* monitor;
+		struct GadgetInteractRsp__Fields fields;
+	};
+
+    struct EntityHandle_1_BaseEntity_ {
+        uint32_t runtimeID;
+        struct BaseEntity* _entityRef;
+    };
+	
+    struct GGGIOOJFONN_CCAMDLAOBAA_ {
+		uint32_t ODBALKCAMHN;
+		struct CCAMDLAOBAA* KCIDMFKGBFB;
+	};
+
+    struct __declspec(align(8)) FishingManager__Fields {
+		struct DBEHAHEIEIP__Array* _levelFishBait;
+		struct UInt32__Array* _failedReminder;
+		struct UInt32__Array* _preSuccessReminder;
+		struct UInt32__Array* _star3Reminder;
+		struct UInt32__Array* _star4Reminder;
+		float _lastPreSuccessTime;
+		uint32_t _lastPreSuccessReminder;
+		uint32_t baitId;
+		uint32_t rodId;
+		uint32_t _rodEntityId;
+		uint32_t poolId;
+		uint32_t poolEntityId;
+		uint32_t fishRuntimeId;
+		bool _enterPosChecked;
+		struct Vector3 _enterPos;
+		float _curForce_k__BackingField;
+		float _curDmg_k__BackingField;
+		float _lastForce;
+		float _baseAddForce;
+		float _addForceAcce;
+		float _addForceMax;
+		float _addForceStartTime;
+		float _addForceTime;
+		float _curAddForce;
+		float _baseReduceForce;
+		float _reduceForceAcce;
+		float _reduceForceMax;
+		float _reduceForceStartTime;
+		float _reduceForceTime;
+		float _curReduceForce;
+		float _forceFactorX;
+		float _baseAddAtk;
+		float _addAtkAcce;
+		float _addAtkMax;
+		float _curAddAtk;
+		float _baseReduceAtk;
+		float _dmgFactorX;
+		float _triggerInterval;
+		float _releaseInterval;
+		int32_t _inBonusFlag;
+		float _enterBonusTime;
+		float _maxBonusTime;
+		bool _isEnterFishing_k__BackingField;
+		bool _isFishing;
+		bool _isCastingAnchorPoint_k__BackingField;
+		float _maxDmg;
+		float _triggerTime;
+		float _releaseTime;
+		float _damageZeroTimeStart;
+		float _lastWarnningTime;
+		uint32_t _strength;
+		struct GGGIOOJFONN_CCAMDLAOBAA_ _fishHandle;
+		float LEFNBAMIIFA;
+		float IAGEFBOLFGL;
+		float _bonusCenter;
+		float _bonusRadius;
+		float _curBonusRadius_k__BackingField;
+		float _bonusRadiusSpeed;
+		float _bonusRadiusTime;
+		float _bonusSpeed;
+		float _bonusTarget;
+		float _bonusDir;
+		float _bonusTime;
+		float _bonusDuration;
+		struct Vector2 _bonusDurationRange;
+		struct Vector2 _bonusOffsetRange;
+		struct Vector2 _bonusSpeedRange;
+		float _curBonusSpeed;
+		float _bonusStartAcc;
+		float _bonusEndAcc;
+		float _bonusMoveDst;
+		struct LJHBAOBBLDE* _fishConfig;
+		bool _dmgStart;
+		uint64_t _qteStartTime;
+		int32_t _tipsFlag;
+		struct List_1_HJJINBLMFFC_BDBAIICPIMN_* _skillList;
+		struct HJJINBLMFFC_BDBAIICPIMN* _curForceSkill;
+		struct HJJINBLMFFC_BDBAIICPIMN* _curBonusSkill;
+		struct PCIKGHOIFOO* _generalDialogContext;
+    };
+
+    struct FishingManager {
+        struct FishingManager__Class* klass;
+        MonitorData* monitor;
+        struct FishingManager__Fields fields;
+    };
+
+	struct FishBiteRsp__Fields {
+		struct MessageBase_1__Fields _;
+		int32_t retcode_;
+	};
+
+	struct FishBiteRsp {
+		struct FishBiteRsp__Class* klass;
+		MonitorData* monitor;
+		struct FishBiteRsp__Fields fields;
+	};
+
+	struct FishBattleBeginRsp__Fields {
+		struct MessageBase_1__Fields _;
+		int32_t retcode_;
+	};
+
+	struct FishBattleBeginRsp {
+		struct FishBattleBeginRsp__Class* klass;
+		MonitorData* monitor;
+		struct FishBattleBeginRsp__Fields fields;
+	};
+
+	enum class FishBattleResult__Enum : int32_t {
+		None = 0x00000000,
+		Succ = 0x00000001,
+		Fail = 0x00000002,
+		Timeout = 0x00000003,
+		Cancel = 0x00000004,
+		Exit = 0x00000005,
+	};
+
+	enum class FishingEvent__Enum : int32_t {
+		None = 0x00000000,
+		QteStart = 0x00000001,
+		QteTrigger = 0x00000002,
+		RequestQuit = 0x00000003,
+		CastAnchorPoint = 0x00000004,
+		SelectBait = 0x00000005,
+		Pull = 0x00000006,
+		NotifyBait = 0x00000007,
+	};
+
+	struct FishBattleEndRsp__Fields {
+		struct MessageBase_1__Fields _;
+		int32_t retcode_;
+		FishBattleResult__Enum battleResult_;
+		/*
+        bool isGotReward_;
+		FishBattleEndRsp_DFMONJENODL_BCGICPPBNDK__Enum noRewardReason_;
+		struct JKGMNHEOCKM_Proto_ItemParam_* rewardItemList_;
+		struct JKGMNHEOCKM_Proto_ItemParam_* dropItemList_;
+		struct JKGMNHEOCKM_Proto_ItemParam_* talentItemList_;
+	    */
+    };
+
+	struct FishBattleEndRsp {
+		struct FishBattleEndRsp__Class* klass;
+		MonitorData* monitor;
+		struct FishBattleEndRsp__Fields fields;
+	};
+
+
+
+    #if defined(_CPLUSPLUS_)
+        enum class DataPropOp__Enum : int32_t {
+            Reset = 0x00000000,
+            Change = 0x00000001,
+        };
+    #else
+        enum DataPropOp__Enum {
+            DataPropOp__Enum_Reset = 0x00000000,
+            DataPropOp__Enum_Change = 0x00000001,
+        };
+
+    #endif
+
+    struct __declspec(align(8)) NormalTimer__Fields {
+        float _timer_k__BackingField;
+        float _timespan_k__BackingField;
+        bool _isTimeUp_k__BackingField;
+        bool _isActive_k__BackingField;
+        struct Action* timeupAction;
+        bool fromCache;
+    };
+
+    struct NormalTimer {
+        struct NormalTimer__Class* klass;
+        MonitorData* monitor;
+        struct NormalTimer__Fields fields;
+    };
+
+    struct EntityTimer__Fields {
+        struct NormalTimer__Fields _;
+        struct BaseEntity* _timeScaleEntity;
+        bool _ignoreTimeScale;
+    };
+
+    struct EntityTimer {
+        struct EntityTimer__Class* klass;
+        MonitorData* monitor;
+        struct EntityTimer__Fields fields;
+    };
+
+    struct LCCharacterCombat__Fields {
+        struct LCBaseCombat__Fields _;
+        struct Dictionary_2_System_UInt32_MoleMole_LCCharacterCombat_NOCCPOEFFII_* _summonInfos;
+    };
+
+    struct LCCharacterCombat {
+        struct LCCharacterCombat__Class* klass;
+        MonitorData* monitor;
+        struct LCCharacterCombat__Fields fields;
+    };
+
+    struct LCAvatarCombat__Fields {
+        struct LCCharacterCombat__Fields _;
+        struct EntityTimer* _targetAtteTimer;
+        struct EntityTimer* _targetFixTimer;
+        struct AvatarSkillDepotExcelConfig* _skillDepotConfig;
+        bool toDoChargeSkill;
+        struct LCAvatarCombat_OMIIMOJOHIP__Array* _currSkills;
+        struct Dictionary_2_System_UInt32_MoleMole_SafeFloat_* _equipAffixCD;
+        int32_t _attackModeTriggerID;
+        struct Dictionary_2_System_UInt32_MoleMole_LCAvatarCombat_OMIIMOJOHIP_* _skillInfoMap;
+        struct List_1_UniRx_Tuple_2__3* _affixToAdd;
+        struct BaseShape2d* _curLockTargetShape;
+        struct SimpleSafeFloat__Array* _curLockTargetWeightParams;
+        void* _lockTargetOverrideParams;
+        struct List_1_MoleMole_LCAvatarCombat_OGAACDHEDLA_* meleeBuckets;
+        struct List_1_MoleMole_LCAvatarCombat_OGAACDHEDLA_* rangedBuckets;
+        struct Dictionary_2_System_UInt32_List_1_System_UInt32_* _curSkillCDSlot;
+    };
+
+    struct LCAvatarCombat {
+        struct LCAvatarCombat__Class* klass;
+        MonitorData* monitor;
+        struct LCAvatarCombat__Fields fields;
+    };
+
+#if defined(_CPLUSPLUS_)
+    enum class HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum : int32_t {
+        Move = 0x00000000,
+        TurnDirection = 0x00000001,
+        FallOnGround = 0x00000002,
+        GoUpstairs = 0x00000003,
+        JumpUpWallReady = 0x00000004,
+        Climb = 0x00000005,
+        JumpUpWallForStandby = 0x00000006,
+        StandbyToClimb = 0x00000007,
+        Jump = 0x00000008,
+        Drop = 0x00000009,
+        Fly = 0x0000000a,
+        CombatMove = 0x0000000b,
+        CombatFallOnGround = 0x0000000c,
+        CombatAir = 0x0000000d,
+        Swim = 0x0000000e,
+        SwimJump = 0x0000000f,
+        Ladder = 0x00000010,
+        FlyGateLoading = 0x00000011,
+        Crouch = 0x00000012,
+        Perform = 0x00000013,
+        FlyFollowRoute = 0x00000014,
+        Null = 0x00000015,
+        Vehicle = 0x00000016,
+        Skiff = 0x00000017,
+    };
+
+#else
+    enum HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum {
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Move = 0x00000000,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_TurnDirection = 0x00000001,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_FallOnGround = 0x00000002,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_GoUpstairs = 0x00000003,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_JumpUpWallReady = 0x00000004,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Climb = 0x00000005,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_JumpUpWallForStandby = 0x00000006,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_StandbyToClimb = 0x00000007,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Jump = 0x00000008,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Drop = 0x00000009,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Fly = 0x0000000a,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_CombatMove = 0x0000000b,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_CombatFallOnGround = 0x0000000c,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_CombatAir = 0x0000000d,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Swim = 0x0000000e,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_SwimJump = 0x0000000f,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Ladder = 0x00000010,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_FlyGateLoading = 0x00000011,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Crouch = 0x00000012,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Perform = 0x00000013,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_FlyFollowRoute = 0x00000014,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Null = 0x00000015,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Vehicle = 0x00000016,
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum_Skiff = 0x00000017,
+    };
+
+#endif
+    struct SCameraModuleInitialize__VTable {
+        VirtualInvokeData Equals;
+        VirtualInvokeData Finalize;
+        VirtualInvokeData GetHashCode;
+        VirtualInvokeData ToString;
+        VirtualInvokeData PODDMLNOAIC;
+        VirtualInvokeData CJFDOKANFFO;
+        VirtualInvokeData MODBDHFJMMK;
+        VirtualInvokeData BDEMLMONJLP;
+        VirtualInvokeData CEONIHCAFLE;
+        VirtualInvokeData EKNGAGLAGDO;
+        VirtualInvokeData FEECLIEHIMB;
+        VirtualInvokeData BDCBKMLNFBH;
+        VirtualInvokeData HHLKFCNMNFF;
+        VirtualInvokeData HJIDOMGOCNO;
+        VirtualInvokeData HIDLLHBHACG;
+    };
+
+    struct SCameraModuleInitialize__StaticFields {
+        struct DelegateBridge* MGFFCDGAIDM;
+        struct DelegateBridge* EMPDBKKFDEH;
+        struct DelegateBridge* LJFCBJFECIM;
+        struct DelegateBridge* OBDMMEOIDDD;
+        struct DelegateBridge* PMLMIEOEAEI;
+        struct DelegateBridge* ACDKGBLBOPF;
+        struct DelegateBridge* GJGHGIEECBJ;
+        struct DelegateBridge* KMNDONNIDOG;
+        struct DelegateBridge* EDKBBBAPKNK;
+        struct DelegateBridge* LCCJOCOOPNG;
+        struct DelegateBridge* DPMMFLGDGIE;
+        struct DelegateBridge* CIADAMOHLOO;
+        struct DelegateBridge* EJMEFEDPGKO;
+        struct DelegateBridge* CGKHIGGPGDI;
+        struct DelegateBridge* NHMJOEBDCOO;
+        struct DelegateBridge* KKHKGALGNBF;
+        struct DelegateBridge* MIBGPOOPJLI;
+        struct DelegateBridge* IDKHBEDAJPF;
+        struct DelegateBridge* GKJOJNEECDM;
+        struct DelegateBridge* ADEPIOCJMPN;
+        struct DelegateBridge* LBCLKFHBHIE;
+        struct DelegateBridge* HAOKFADIBCF;
+        struct DelegateBridge* CNCLDMPOFAJ;
+        struct DelegateBridge* DPJPHBIHEFA;
+        struct DelegateBridge* KHHAOEIFDAP;
+        struct DelegateBridge* POLIPAAFCPA;
+        struct DelegateBridge* FPOCACECFCG;
+        struct DelegateBridge* IFLPBMPEBCN;
+        struct DelegateBridge* MHKCECLNCOD;
+        struct DelegateBridge* LIDKADPGCFA;
+        struct DelegateBridge* KDCPGFEEFCL;
+        struct DelegateBridge* FKAONMCKIBP;
+        struct DelegateBridge* FEDMEBPGJFE;
+        struct DelegateBridge* IDBHCJFAOHO;
+        struct DelegateBridge* IBBBMCNODMJ;
+        struct DelegateBridge* HAOKOPOHLHJ;
+        struct DelegateBridge* GPABAMGACIH;
+    };
+
+    struct SCameraModuleInitialize__Class {
+        Il2CppClass_0 _0;
+        Il2CppRuntimeInterfaceOffsetPair* interfaceOffsets;
+        struct SCameraModuleInitialize__StaticFields* static_fields;
+        const Il2CppRGCTXData* rgctx_data;
+        Il2CppClass_1 _1;
+        struct SCameraModuleInitialize__VTable vtable;
+    };
+
+    struct __declspec(align(8)) SCameraModuleBase__Fields {
+        struct PipelineCameraModuleConfig* config;
+        struct PipelineCameraGlobalConfig* globalConfig;
+        struct SCameraBaseState* _state;
+    };
+
+    struct SCameraModuleInitialize__Fields {
+        struct SCameraModuleBase__Fields _;
+        bool levelCinemachine;
+        struct SimpleVector3Damper* _skfilter;
+        bool _isFilterInitialized;
+        bool _isTrySmoothBetweenNormalAndClimb;
+        double _smoothLerpSpeed;
+        struct Vector3d_1 _smoothingTransformLookAtPoint;
+        struct SimpleKalmanFilter* _dirKfilter;
+        bool _isDirectionFilterInitialized;
+        struct Vector3d__Array* _faceDirectionTrace;
+        bool _isFaceDirectionTraceInitialized;
+        struct Vector3d_1 _lastFrameSmoothFaceDirection;
+        bool _hasEnteredAvatarClimb;
+        bool _hasBeenConsistent;
+        double _timerForWaitingFacingToWallNoraml;
+#if defined(_CPLUSPLUS_)
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum _curFSMState;
+#else
+        int32_t _curFSMState;
+#endif
+#if defined(_CPLUSPLUS_)
+        HumanoidMoveFSM_HumanoidMoveFSM_FSMStateID__Enum _lastFSMState;
+#else
+        int32_t _lastFSMState;
+#endif
+        struct Vector3d_1 _climbWallNormal;
+        bool _climbWallNormalGetted;
+        int32_t _LayerIndex;
+        int32_t _SceneLayerIndex;
+        struct Ray _ray;
+        struct RaycastHit _hitInfo;
+        double _timerForDropping;
+        bool _firstStartFlag;
+        bool _isMoving;
+        bool _isDropping;
+        bool _isCombatHitCamera;
+        bool _isInStandby2Climb;
+        bool _isWaterFall;
+        double _waterHeight;
+        struct Vector3d_1 _waterFallNormal;
+        struct Vector3d_1 _avatarVelocity;
+        bool _isAvatarMoveFollowRefferenceSystem;
+        double _inputMoveAngle;
+        double _inputMoveMold;
+        double _defaultCameraDistanceAdjust;
+        float HOBOHFMFPPG;
+        float POIEBBJDKKF;
+        bool DJDBLKBDMAH;
+        struct Dictionary_2_UnityEngine_Vector2_System_Double_* _animStateChangePair;
+        struct Dictionary_2_UnityEngine_Vector2_SCameraModuleInitialize_SCameraModuleInitialize_FilterKeepType_* _animStateChangeType;
+        struct Dictionary_2_UnityEngine_Vector2_System_Double_* _animStateChangeTime;
+        double _preNormalRadiusTarget;
+        double _preNormalRadiusStart;
+        double _deltaTimeNormal;
+        bool _lerpingNormal;
+        struct Vector3d_1 heightAdjust;
+        struct Vector3d_1 heightAdjustMax;
+        struct Vector3d_1 currHeightAdjust;
+    };
+
+    struct SCameraModuleInitialize {
+        struct SCameraModuleInitialize__Class* klass;
+        MonitorData* monitor;
+        struct SCameraModuleInitialize__Fields fields;
+    };
+
+    struct __declspec(align(8)) SimpleVector3Damper__Fields {
+        struct Vector3d_1 _lastPosition;
+        struct Vector3d_1 _lastTargetPosition;
+        struct Vector3d_1 _lastVelocity;
+        double _dampTime;
+    };
+
+#if defined(_CPLUSPLUS_)
+    enum class CameraModuleState__Enum : int32_t {
+        Normal = 0x00000000,
+        Parallel = 0x00000001,
+        Cinema = 0x00000002,
+    };
+
+#else
+    enum CameraModuleState__Enum {
+        CameraModuleState__Enum_Normal = 0x00000000,
+        CameraModuleState__Enum_Parallel = 0x00000001,
+        CameraModuleState__Enum_Cinema = 0x00000002,
+    };
+
+#endif
+#if defined(_CPLUSPLUS_)
+    enum class ODBAPAHHJKN__Enum : int32_t {
+        None = 0x00000000,
+        LerpingIn = 0x00000001,
+        Free = 0x00000002,
+        LerpingOut = 0x00000003,
+    };
+
+#else
+    enum ODBAPAHHJKN__Enum {
+        ODBAPAHHJKN__Enum_None = 0x00000000,
+        ODBAPAHHJKN__Enum_LerpingIn = 0x00000001,
+        ODBAPAHHJKN__Enum_Free = 0x00000002,
+        ODBAPAHHJKN__Enum_LerpingOut = 0x00000003,
+    };
+
+#endif
+    struct CameraShareData {
+        int32_t targetFrameRate;
+        bool isBackground;
+        bool isBlending;
+        bool disableProtect;
+#if defined(_CPLUSPLUS_)
+        CameraModuleState__Enum state;
+#else
+        int32_t state;
+#endif
+#if defined(_CPLUSPLUS_)
+        CameraModuleState__Enum lastFrameState;
+#else
+        int32_t lastFrameState;
+#endif
+        double anchorDistance;
+        double defaultHalfFov;
+        double CameraNearClipPlane;
+        double CameraHalfFov;
+        double CameraAspect;
+        double BoatFov;
+        struct Vector3d_1 outCameraPosition;
+        struct Vector3d_1 outCameraSpherical;
+        struct Vector3d_1 outCameraForward;
+        struct Vector3d_1 outCameraUp;
+        struct Vector3d_1 cameraPosition;
+        struct Vector3d_1 cameraSpherical;
+        struct Vector3d_1 cameraForward;
+        struct Vector3d_1 cameraUp;
+        struct Vector3d_1 refAnchorPosition;
+        struct Vector3d_1 lastCameraPosition;
+        struct Vector3d_1 lastCameraSpherical;
+        struct Vector3d_1 lastCameraForward;
+        struct Vector3d_1 lastCameraUp;
+        struct Vector3d_1 lastRefAnchorPosition;
+        struct Vector3d_1 lastFrameCameraPosition;
+        struct Vector3d_1 lastFrameCameraSpherical;
+        struct Vector3d_1 lastFrameCameraForward;
+        struct Vector3d_1 lastFrameCameraUp;
+        struct Vector3d_1 lastFrameRefAnchorPosition;
+        double cameraForwardPoleDeltaAngle;
+        double cameraForwardElevDeltaAngle;
+        double lastFrameCameraForwardPoleDeltaAngle;
+        double lastFrameCameraForwardElevDeltaAngle;
+        struct Vector3d_1 lastFrameFilterLookAtPosition;
+        struct Vector3d_1 lastFrameLookAtPosition;
+        struct Vector3d_1 lastFrameTransformLookAtPosition;
+        double additionalRadius;
+        double globalDefaultCameraLocateRatio;
+        double currentManualLocateRatio;
+        double currentHeightAdjustRatio;
+        double currentWarningLocateRatio;
+        double maxRadiusAjustRatio;
+        double _defaultRadiusExtraRatio;
+        double _maxRadiusExtraRatio;
+        double _maxRadiusNormal;
+        double _defaultLocateRatioNormal;
+        double _maxRadiusCombat;
+        double _minCameraRadius;
+        double maxRadiusNormalInLerping;
+        double maxRadiusCombatInLerping;
+        double globalDefaultElevation;
+        double globalMinElevation;
+        double globalMaxElevation;
+        bool CNNNLIMHHKK;
+        bool EPCDPKNLHEA;
+#if defined(_CPLUSPLUS_)
+        ODBAPAHHJKN__Enum CJOOGBBKNPM;
+#else
+        int32_t CJOOGBBKNPM;
+#endif
+#if defined(_CPLUSPLUS_)
+        ODBAPAHHJKN__Enum LMKHMGGMCGF;
+#else
+        int32_t LMKHMGGMCGF;
+#endif
+        bool DDFJOMJBMEE;
+        struct Vector3d_1 DPEJMKOAAKG;
+        bool isAvatarFocusing;
+        bool isRotating;
+        bool isManuallyRotating;
+        bool isZooming;
+        bool isMoving;
+        bool isFlying;
+        bool isDropping;
+        bool isJumping;
+        bool isBeingHit;
+        bool isTransfering;
+        bool isKeepShotRotation;
+        bool isMovingRotatingVertically;
+        bool isSkiffDashing;
+        bool lastIsRotating;
+        bool lastIsZooming;
+        bool lastIsMoving;
+        bool lastIsFlying;
+        bool rotatedDuringCurrentMove;
+        bool rotatedDuringCurrentIdle;
+        int32_t lastAnimStateInd;
+        int32_t curAnimStateInd;
+        bool setFilterAnimStateFlag;
+        struct Vector2 refAnchorAngularVelocity;
+        double zoomVelocity;
+        bool needFastGotoIdealDir;
+        bool idealClimb2Move;
+        bool isSpecifyPoleClockwise;
+        bool isCounterClockwise;
+        bool isBoatRecovering;
+        int32_t lockingEnemyNearbyCount;
+        double lockingEnemyHeight;
+        bool paraKeepYaw;
+        bool shouldKeepElevationRotating;
+        bool isInBackUpSlope;
+        double idealSlope;
+        bool isKeepElevation;
+        bool shouldKeepZooming;
+        bool isRadiusSqueezing;
+        double idealCameraSphZoomRadius;
+        double idealCameraSphElevation;
+        double radiusBeforeMotion;
+        bool isCombatCamera;
+        bool isInCombat;
+        bool isLocalVehicleInCombat;
+        bool isKeepRotation;
+        struct Nullable_1_Double_ horizontalRecenteringKeepRotationTriggerTimer;
+        struct Nullable_1_Double_ verticalRecenteringKeepRotationTriggerTimer;
+        double horizontalRecenteringTriggerTimer;
+        double verticalRecenteringTriggerTimer;
+        bool isCombatPulling;
+        double combatPullingTime;
+        struct Nullable_1_Double_ _overrideMinCameraRadius;
+        struct Nullable_1_Double_ _overrideMinElevation;
+    };
+
 #if !defined(_GHIDRA_) && !defined(_IDA_)
 }
 #endif

@@ -10,13 +10,16 @@
 namespace cheat::feature 
 {
 	static void HumanoidMoveFSM_LateTick_Hook(void* __this, float deltaTime, MethodInfo* method);
+	app::Vector3 zero;
 
     NoClip::NoClip() : Feature(),
-        NF(m_Enabled,            "No clip",              "NoClip", false),
-        NF(m_Speed,              "Speed",                "NoClip", 5.5f),
-        NF(m_CameraRelative,     "Relative to camera",   "NoClip", true),
-		NF(m_SneakSpeedEnabled,  "Sneak speed enabled",  "NoClip", false),
-		NF(m_SneakSpeedValue,    "Sneak speed",          "NoClip", 1.0f)
+        NF(f_Enabled,            "No clip",              "NoClip", false),
+        NF(f_Speed,              "Speed",                "NoClip", 5.5f),
+        NF(f_CameraRelative,     "Relative to camera",   "NoClip", true),
+		NF(f_VelocityMode,       "Velocity mode",        "NoClip", false),
+		NF(f_FreeflightMode,     "Freeflight mode",      "NoClip", false),
+		NF(f_AltSpeedEnabled,	 "Alt speed enabled",    "NoClip", false),
+		NF(f_AltSpeed,			 "Alt speed",            "NoClip", 1.0f)
     {
 		HookManager::install(app::HumanoidMoveFSM_LateTick, HumanoidMoveFSM_LateTick_Hook);
 
@@ -26,33 +29,48 @@ namespace cheat::feature
 
     const FeatureGUIInfo& NoClip::GetGUIInfo() const
     {
-        static const FeatureGUIInfo info{ "No clip", "Player", true };
+        static const FeatureGUIInfo info{ "No-Clip", "Player", true };
         return info;
     }
 
     void NoClip::DrawMain()
     {
-		ConfigWidget("Enabled", m_Enabled, "Enables no clip.\n" \
-            "For move use ('W', 'A', 'S', 'D', 'Space', 'Shift')");
+		ConfigWidget("Enabled", f_Enabled, "Enables no-clip (fast speed + no collision).\n" \
+            "To move, use WASD, Space (go up), and Shift (go down).");
 
-		ConfigWidget(m_Speed, 0.1f, 2.0f, 100.0f, "No clip move speed.\n"\
-            "It's not recommended to set value above 5.");
+		ConfigWidget("Speed", f_Speed, 0.1f, 2.0f, 100.0f,
+			"No-clip move speed.\n" \
+			"Not recommended setting above 5.0.");
+
+		ConfigWidget("Camera-relative movement", f_CameraRelative,
+			"Move relative to camera view instead of avatar view/direction.");
+
+		ConfigWidget("Alternate No-clip", f_AltSpeedEnabled,
+			"Allows usage of alternate speed when holding down LeftCtrl key.\n" \
+			"Useful if you want to temporarily go faster/slower than the no-clip speed setting.");
+			
+		if (f_AltSpeedEnabled) {
+			ConfigWidget("Alt Speed", f_AltSpeed, 0.1f, 2.0f, 100.0f,
+				"Alternate no-clip move speed.\n" \
+				"Not recommended setting above 5.0.");
 		
-        ConfigWidget(m_CameraRelative, "Move performing relative to camera direction. Not avatar facing direction.");
-		
-		ConfigWidget("", m_SneakSpeedEnabled); ImGui::SameLine();
-		ConfigWidget(m_SneakSpeedValue, 0.1f, 2.0f, 100.0f,
-			"Override move speed with value.\nPressing LeftCtrl will make you move faster/slower depending on the value you set.");
+		ConfigWidget("Velocity mode", f_VelocityMode,"Use velocity instead of position to move.");
+		ConfigWidget("Freeflight mode", f_FreeflightMode,"Don't remove collisions");
+		}
     }
 
     bool NoClip::NeedStatusDraw() const
 {
-        return m_Enabled;
+        return f_Enabled;
     }
 
     void NoClip::DrawStatus() 
     {
-        ImGui::Text("NoClip [%.01f|%s]", m_Speed.value(), m_CameraRelative ? "CR" : "PR");
+		ImGui::Text("NoClip%s[%.01f%s%|%s]",
+			f_AltSpeedEnabled ? "+Alt " : " ",
+			f_Speed.value(),
+			f_AltSpeedEnabled ? fmt::format("|{:.1f}", f_AltSpeed.value()).c_str() : "",
+			f_CameraRelative ? "CR" : "PR");
     }
 
     NoClip& NoClip::GetInstance()
@@ -69,7 +87,7 @@ namespace cheat::feature
 
 		auto& manager = game::EntityManager::instance();
 		
-		if (!m_Enabled && isApplied)
+		if (!f_Enabled && isApplied)
 		{
 			auto avatarEntity = manager.avatar();
 			auto rigidBody = avatarEntity->rigidbody();
@@ -77,10 +95,11 @@ namespace cheat::feature
 				return;
 
 			app::Rigidbody_set_detectCollisions(rigidBody, true, nullptr);
+			
 			isApplied = false;
 		}
 
-		if (!m_Enabled)
+		if (!f_Enabled)
 			return;
 
 		isApplied = true;
@@ -90,21 +109,24 @@ namespace cheat::feature
 		if (baseMove == nullptr)
 			return;
 
-		if (renderer::globals::IsInputBlocked)
+		if (renderer::IsInputLocked())
 			return;
 
 		auto rigidBody = avatarEntity->rigidbody();
 		if (rigidBody == nullptr)
 			return;
-
-		app::Rigidbody_set_detectCollisions(rigidBody, false, nullptr);
+		if (!f_FreeflightMode)
+			app::Rigidbody_set_detectCollisions(rigidBody, false, nullptr);
+		
+		if (!f_VelocityMode)
+			app::Rigidbody_set_velocity(rigidBody, zero,nullptr);
 
 		auto cameraEntity = game::Entity(reinterpret_cast<app::BaseEntity*>(manager.mainCamera()));
-		auto relativeEntity = m_CameraRelative ? &cameraEntity : avatarEntity;
+		auto relativeEntity = f_CameraRelative ? &cameraEntity : avatarEntity;
 
-		float speed = m_Speed.value();
-		if (m_SneakSpeedEnabled && Hotkey(VK_LCONTROL).IsPressed())
-			speed = m_SneakSpeedValue.value(); 
+		float speed = f_Speed.value();
+		if (f_AltSpeedEnabled && Hotkey(VK_LCONTROL).IsPressed())
+			speed = f_AltSpeed.value(); 
 
 		app::Vector3 dir = {};
 		if (Hotkey('W').IsPressed())
@@ -120,10 +142,10 @@ namespace cheat::feature
 			dir = dir + relativeEntity->left();
 
 		if (Hotkey(VK_SPACE).IsPressed())
-			dir = dir + relativeEntity->up();
-
+			dir = dir + avatarEntity->up();
+		
 		if (Hotkey(ImGuiKey_ModShift).IsPressed())
-			dir = dir + relativeEntity->down();
+			dir = dir + avatarEntity->down();
 
 		app::Vector3 prevPos = avatarEntity->relativePosition();
 		if (IsVectorZero(prevPos))
@@ -132,7 +154,10 @@ namespace cheat::feature
 		float deltaTime = app::Time_get_deltaTime(nullptr, nullptr);
 
 		app::Vector3 newPos = prevPos + dir * speed * deltaTime;
-		avatarEntity->setRelativePosition(newPos);
+		if (!f_VelocityMode)
+			avatarEntity->setRelativePosition(newPos);
+		else
+			app::Rigidbody_set_velocity(rigidBody, dir * speed, nullptr);
 	}
 
 	// Fixing player sync packets when no clip
@@ -141,7 +166,7 @@ namespace cheat::feature
 		static app::Vector3 prevPosition = {};
 		static int64_t prevSyncTime = 0;
 
-		if (!m_Enabled)
+		if (!f_Enabled)
 		{
 			prevSyncTime = 0;
 			return;
@@ -188,10 +213,10 @@ namespace cheat::feature
 	static void HumanoidMoveFSM_LateTick_Hook(void* __this, float deltaTime, MethodInfo* method)
 	{
 		NoClip& noClip = NoClip::GetInstance();
-		if (noClip.m_Enabled)
+		if (noClip.f_Enabled)
 			return;
 
-		callOrigin(HumanoidMoveFSM_LateTick_Hook, __this, deltaTime, method);
+		CALL_ORIGIN(HumanoidMoveFSM_LateTick_Hook, __this, deltaTime, method);
 	}
 }
 

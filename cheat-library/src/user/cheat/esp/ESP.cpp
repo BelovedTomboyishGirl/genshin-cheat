@@ -13,68 +13,104 @@
 #include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
 
-namespace cheat::feature 
+#include "cheat-base/cheat/CheatManagerBase.h"
+
+namespace cheat::feature
 {
 
 	ESP::ESP() : Feature(),
-		NF(m_Enabled, "ESP", "ESP", false),
+		NF(f_Enabled, "ESP", "ESP", false),
 
-        NF(m_DrawBoxMode, "Draw mode", "ESP", DrawMode::Box),
-        NF(m_Fill, "Fill box/rentangle", "ESP", false),
-        NF(m_FillTransparency, "Fill transparency", "ESP", 0.5f),
+        NF(f_DrawBoxMode, "Draw Mode", "ESP", DrawMode::Box),
+		NF(f_DrawTracerMode, "Tracer Mode", "ESP", DrawTracerMode::Line),
+        NF(f_Fill, "Fill Box/Rectangle/Arrows", "ESP", false),
+        NF(f_FillTransparency, "Fill Transparency", "ESP", 0.5f),
 
-		NF(m_DrawLine, "Draw line", "ESP", false),
-        NF(m_DrawDistance, "Draw distance", "ESP", false),
-        NF(m_DrawName, "Draw name", "ESP", false),
+		NF(f_ArrowRadius, "Arrow Radius", "ESP", 100.0f),
+		NF(f_OutlineThickness, "Outline Thickness", "ESP", 1.0f),
+		NF(f_TracerSize, "Tracer Size", "ESP", 1.0f),
+        NF(f_DrawDistance, "Draw Distance", "ESP", false),
+        NF(f_DrawName, "Draw Name", "ESP", false),
 
-        NF(m_FontSize, "Font size", "ESP", 12.0f),
-        NF(m_FontColor, "Font color", "ESP", ImColor(255, 255, 255)),
-		NF(m_ApplyGlobalFontColor, "Apply global font colors", "ESP", false),
+		NF(f_FontSize, "Font Size", "ESP", 12.0f),
+		NF(f_FontOutline, "Font outline", "ESP", true),
+		NF(f_FontOutlineSize, "Font outline size", "ESP", 1.0f),
 
-        NF(m_MinSize, "Min in world size", "ESP", 0.5f),
-		NF(m_Range, "Range", "ESP", 100.0f),
+		NF(f_GlobalFontColor, "Font Color", "ESP", ImColor(255, 255, 255)),
+		NF(f_GlobalBoxColor, "Box Color", "ESP", ImColor(255, 255, 255)),
+		NF(f_GlobalLineColor, "Tracer Color", "ESP", ImColor(255, 255, 255)),
+		NF(f_GlobalRectColor, "Rect Color", "ESP", ImColor(255, 255, 255)),
+
+		NF(f_MinSize, "Min. Entity Size", "ESP", 0.5f),
+		NF(f_Range, "Range", "ESP", 100.0f),
 		m_Search({})
-    {
-		cheat::events::KeyUpEvent += MY_METHOD_HANDLER(ESP::OnKeyUp);
+	{
 		InstallFilters();
+
+		m_FontContrastColor = ImGui::CalcContrastColor(f_GlobalFontColor);
+
+		::events::KeyUpEvent += MY_METHOD_HANDLER(ESP::OnKeyUp);
 	}
 
 
-    const FeatureGUIInfo& ESP::GetGUIInfo() const
-    {
-        static const FeatureGUIInfo info { "", "ESP", false };
-        return info;
-    }
+	const FeatureGUIInfo& ESP::GetGUIInfo() const
+	{
+		static const FeatureGUIInfo info{ "", "ESP", false };
+		return info;
+	}
 
-    void ESP::DrawMain()
-    {
-		BeginGroupPanel("General", ImVec2(-1, 0));
+	void ESP::DrawMain()
+	{
+		if (BeginGroupPanel("General", ImVec2(-1, 0), true))
+		{
+			ConfigWidget("ESP Enabled", f_Enabled, "Show filtered object through obstacles.");
+			ConfigWidget("Range (m)", f_Range, 1.0f, 1.0f, 200.0f);
 
-		ConfigWidget("ESP Enabled", m_Enabled, "Show filtered object through obstacles.");
-        ConfigWidget(m_Range, 1.0f, 1.0f, 200.0f);
-        
-        ConfigWidget(m_DrawBoxMode, "Select the mode of box drawing.");
-		ConfigWidget(m_Fill);
-		ConfigWidget(m_FillTransparency, 0.01f, 0.0f, 1.0f, "Transparency of filled part.");
+			ConfigWidget(f_DrawBoxMode, "Select the mode of box drawing.");
+      ConfigWidget(f_DrawTracerMode, "Select the mode of tracer drawing.");
+      
+			ConfigWidget(f_Fill);
+			ConfigWidget(f_FillTransparency, 0.01f, 0.0f, 1.0f, "Transparency of filled part.");
 
-        ImGui::Spacing();
-        ConfigWidget(m_DrawLine,     "Show line from character to object on screen.");
-        ConfigWidget(m_DrawName,     "Draw name about object.");
-        ConfigWidget(m_DrawDistance, "Draw distance about object.");
+      if (f_DrawTracerMode.value() == DrawTracerMode::OffscreenArrows &&
+			BeginGroupPanel("Arrow tracer options", ImVec2(-1, 0), true))
+      {
+        ConfigWidget(f_TracerSize, 0.005f, 0.1f, 10.0f, "Size of tracer.");
+        ConfigWidget(f_ArrowRadius, 0.5f, 50.0f, 300.0f, "Radius of arrow.");
+        ConfigWidget(f_OutlineThickness, 0.005f, 0.0f, 10.0f, "Outline thickness of arrow.");
 
-        ImGui::Spacing();
-        ConfigWidget(m_FontSize, 0.05f, 1.0f, 100.0f, "Font size of name or distance.");
-        ConfigWidget(m_FontColor, "Color of name or distance text font.");
-		ConfigWidget(m_ApplyGlobalFontColor, "Override all color settings with above font color setting.\n"
-			"Turn off to revert to custom settings.");
+        EndGroupPanel();
+      }
+      
+			ImGui::Spacing();
+			ConfigWidget(f_DrawName, "Draw name of object.");
+			ConfigWidget(f_DrawDistance, "Draw distance of object.");
 
-        ConfigWidget(m_MinSize, 0.05f, 0.1f, 200.0f, "Minimal object size in world.\n"
-            "Some entities have not bounds or bounds is too small, this parameter help set minimal size of this type object.");
-		
-		EndGroupPanel();
+			ImGui::Spacing();
+			ConfigWidget(f_FontSize, 0.05f, 1.0f, 100.0f, "Font size of name or distance.");
+			ConfigWidget("## Font outline enabled", f_FontOutline); ImGui::SameLine();
+			ConfigWidget("Font outline", f_FontOutlineSize, 0.001f, 0.0f, 10.0f);
 
-		ImGui::Text("How to use item filters:\n\tLeft Mouse Button (LMB) - toggle visibility.\n\tRMB - change color.");
-		ImGui::InputText("Search filters", &m_Search);
+			ImGui::Spacing();
+			if (BeginGroupPanel("Global colors", ImVec2(-1, 0), true))
+			{
+				if (ConfigWidget(f_GlobalFontColor, "Color of line, name, or distance text font."))
+					m_FontContrastColor = ImGui::CalcContrastColor(f_GlobalFontColor);
+				ConfigWidget(f_GlobalBoxColor, "Color of box font.");
+				ConfigWidget(f_GlobalLineColor, "Color of line font.");
+				ConfigWidget(f_GlobalRectColor, "Color of rectangle font.");
+				EndGroupPanel();
+			}
+
+			ConfigWidget(f_MinSize, 0.05f, 0.1f, 200.0f, "Minimum entity size as measured in-world.\n" \
+				"Some entities have either extremely small or no bounds at all.\n" \
+				"This parameter helps filter out entities that don't meet this condition.");
+
+			EndGroupPanel();
+		}
+
+		ImGui::Text("How to use item filters:\n\tLMB - Toggle visibility\n\tRMB - Open color picker");
+		ImGui::InputText("Search Filters", &m_Search);
 
 		for (auto& [section, filters] : m_Sections)
 		{
@@ -82,26 +118,30 @@ namespace cheat::feature
 			DrawSection(section, filters);
 			ImGui::PopID();
 		}
-    }
+	}
 
-    bool ESP::NeedStatusDraw() const
+	bool ESP::NeedStatusDraw() const
 	{
-        return m_Enabled;
-    }
+		return f_Enabled;
+	}
 
-    void ESP::DrawStatus() 
-    { 
-        ImGui::Text("ESP [%.01fm|%s%s%s]", m_Range.value(), 
-            m_DrawBoxMode ? "O" : "", 
-            m_Fill ? "F" : "", 
-            m_DrawLine ? "L" : "");
-    }
+	void ESP::DrawStatus()
+	{
+		ImGui::Text("ESP [%.01fm|%s|%s%s%s%s]",
+			f_Range.value(),
+			f_DrawBoxMode.value() == DrawMode::Box ? "Box" : f_DrawBoxMode.value() == DrawMode::Rectangle ? "Rect" : "None",
+			f_Fill ? "F" : "",
+			f_DrawTracerMode.value() == DrawTracerMode::Line ? "L" : f_DrawTracerMode.value() == DrawTracerMode::OffscreenArrows ? "A" : "",
+			f_DrawName ? "N" : "",
+			f_DrawDistance ? "D" : ""
+		);
+	}
 
-    ESP& ESP::GetInstance()
-    {
-        static ESP instance;
-        return instance;
-    }
+	ESP& ESP::GetInstance()
+	{
+		static ESP instance;
+		return instance;
+	}
 
 	void ESP::AddFilter(const std::string& section, const std::string& name, game::IEntityFilter* filter)
 	{
@@ -109,60 +149,75 @@ namespace cheat::feature
 			m_Sections[section] = {};
 
 		auto& filters = m_Sections[section];
-		filters.push_back({ new config::field::ESPItemField(name, name, section), filter });
-		
-		auto& last = filters.back();
-		config::AddField(*last.first);
+		esp::ESPItem newItem(name, ImColor(120, 120, 120, 255), {}, name);
+		filters.push_back({ config::CreateField<esp::ESPItem>(name, name, fmt::format("ESP::Filters::{}", section), false, newItem), filter });
 	}
 
 	void ESP::DrawSection(const std::string& section, const Filters& filters)
 	{
 		std::vector<const FilterInfo*> validFilters;
-		
+
 		for (auto& info : filters)
 		{
-			//m0nkrel : We making a string copies and lowercase them to avoid case sensitive search
-			//Yes, it's shitcode and maybe it break something, but it works.
-			std::string name = info.first->value().m_Name;
-			std::transform(name.begin(), name.end(), name.begin(), ::tolower);
-			std::string search = m_Search;
-			std::transform(search.begin(), search.end(), search.begin(), ::tolower);
-			if (name.find(search) != std::string::npos) 
+			const auto& filterName = info.first.value().m_Name;
+
+			auto it = std::search(
+				filterName.begin(), filterName.end(),
+				m_Search.begin(), m_Search.end(),
+				[](char ch1, char ch2) { return std::tolower(ch1) == std::tolower(ch2); }
+			);
+
+			if (it != filterName.end())
 				validFilters.push_back(&info);
 		}
 
-		if (validFilters.size() == 0)
+		if (validFilters.empty())
 			return;
 
-		BeginGroupPanel(section.c_str(), ImVec2(-1, 0));
-
-		for (auto& info: validFilters)
+		SelectData selData
 		{
-			ImGui::PushID(info->first);
-			DrawFilterField(*info->first);
-			ImGui::PopID();
-		}
+			std::all_of(validFilters.begin(), validFilters.end(), [](const FilterInfo* filter) {  return filter->first.value().m_Enabled; }),
+			false
+		};
 
-		ImGui::Spacing();
-
-		if (ImGui::TreeNode(this, "Hotkeys"))
+		if (BeginGroupPanel(section.c_str(), ImVec2(-1, 0), true, &selData))
 		{
 			for (auto& info : validFilters)
 			{
-				auto& field = info->first;
-				ImGui::PushID(field);
-
-				auto& hotkey = field->valuePtr()->m_EnabledHotkey;
-				if (InputHotkey(field->GetName().c_str(), &hotkey, true))
-					field->Check();
-
+				ImGui::PushID(info);
+				DrawFilterField(info->first);
 				ImGui::PopID();
 			}
 
-			ImGui::TreePop();
+			ImGui::Spacing();
+
+			if (ImGui::TreeNode(this, "Hotkeys"))
+			{
+				for (auto& info : validFilters)
+				{
+					auto& field = info->first;
+					ImGui::PushID(info);
+
+					auto& hotkey = field.value().m_Hotkey;
+					if (InputHotkey(field.name().c_str(), &hotkey, true))
+						field.FireChanged();
+
+					ImGui::PopID();
+				}
+
+				ImGui::TreePop();
+			}
+			EndGroupPanel();
 		}
 
-		EndGroupPanel();
+		if (selData.changed)
+		{
+			for (auto& info : validFilters)
+			{
+				info->first.value().m_Enabled = selData.toggle;
+				info->first.FireChanged();
+			}
+		}
 	}
 
 	std::string Unsplit(const std::string& value)
@@ -175,9 +230,9 @@ namespace cheat::feature
 		return out.str();
 	}
 
-	void FilterItemSelector(const char* label, ImTextureID image, config::field::ESPItemField& field, const ImVec2& size = ImVec2(200, 0), float icon_size = 30);
+	void FilterItemSelector(const char* label, ImTextureID image, const config::Field<esp::ESPItem>& field, const ImVec2& size = ImVec2(200, 0), float icon_size = 30);
 
-	void ESP::DrawFilterField(config::field::ESPItemField& field)
+	void ESP::DrawFilterField(const config::Field<esp::ESPItem>& field)
 	{
 		auto imageInfo = ImageLoader::GetImage(Unsplit(field.value().m_Name));
 		FilterItemSelector(field.value().m_Name.c_str(), imageInfo ? imageInfo->textureID : nullptr, field);
@@ -186,7 +241,7 @@ namespace cheat::feature
 	void ESP::DrawExternal()
 	{
 		auto& esp = ESP::GetInstance();
-		if (!esp.m_Enabled)
+		if (!esp.f_Enabled)
 			return;
 
 		esp::render::PrepareFrame();
@@ -195,19 +250,18 @@ namespace cheat::feature
 
 		for (auto& entity : entityManager.entities())
 		{
-			if (entityManager.avatar()->distance(entity) > esp.m_Range)
+			if (entityManager.avatar()->distance(entity) > esp.f_Range)
 				continue;
 
 			for (auto& [section, filters] : m_Sections)
 			{
 				for (auto& [field, filter] : filters)
 				{
-					auto& entry = *field->valuePtr();
+					auto& entry = field.value();
 					if (!entry.m_Enabled || !m_FilterExecutor.ApplyFilter(entity, filter))
 						continue;
 
-					ImColor entityColor = entry.m_Color;
-					esp::render::DrawEntity(entry.m_Name, entity, entityColor);
+					esp::render::DrawEntity(entry.m_Name, entity, entry.m_Color, entry.m_ContrastColor);
 					break;
 				}
 			}
@@ -220,17 +274,17 @@ namespace cheat::feature
 		{
 			for (auto& [field, filter] : filters)
 			{
-				auto& entry = *field->valuePtr();
-				if (entry.m_EnabledHotkey.IsPressed(key))
+				auto& entry = field.value();
+				if (entry.m_Hotkey.IsPressed(key))
 				{
 					entry.m_Enabled = !entry.m_Enabled;
-					field->Check();
+					field.FireChanged();
 				}
 			}
 		}
 	}
 
-	void FilterItemSelector(const char* label, ImTextureID image, config::field::ESPItemField& field, const ImVec2& size, float icon_size)
+	void FilterItemSelector(const char* label, ImTextureID image, const config::Field<esp::ESPItem>& field, const ImVec2& size, float icon_size)
 	{
 
 		// Init ImGui
@@ -269,9 +323,8 @@ namespace cheat::feature
 		const bool lmb_click = hovered && io.MouseClicked[0];
 		if (lmb_click)
 		{
-			auto& value = field.valuePtr()->m_Enabled;
-			value = !value;
-			field.Check();
+			field.value().m_Enabled = !field.value().m_Enabled;
+			field.FireChanged();
 			ImGui::FocusWindow(window);
 			memset(io.MouseDown, 0, sizeof(io.MouseDown));
 		}
@@ -279,14 +332,13 @@ namespace cheat::feature
 		const bool rmb_click = hovered && io.MouseClicked[ImGuiMouseButton_Right];
 
 		ImGuiWindow* picker_active_window = NULL;
-		
+
 		static bool color_changed = false;
 		static ImGuiID opened_id = 0;
 		if (rmb_click)
 		{
-			auto& col = field.valuePtr()->m_Color;
 			// Store current color and open a picker
-			g.ColorPickerRef = ImVec4(col);
+			g.ColorPickerRef = ImVec4(field.value().m_Color);
 			ImGui::OpenPopup("picker");
 			ImGui::SetNextWindowPos(g.LastItemData.Rect.GetBL() + ImVec2(0.0f, style.ItemSpacing.y));
 			opened_id = id;
@@ -299,7 +351,7 @@ namespace cheat::feature
 			ImGuiColorEditFlags picker_flags_to_forward = ImGuiColorEditFlags_DataTypeMask_ | ImGuiColorEditFlags_PickerMask_ | ImGuiColorEditFlags_InputMask_ | ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_AlphaBar;
 			ImGuiColorEditFlags picker_flags = ImGuiColorEditFlags_DisplayMask_ | ImGuiColorEditFlags_NoLabel | ImGuiColorEditFlags_AlphaPreviewHalf;
 			ImGui::SetNextItemWidth(ImGui::GetFrameHeight() * 12.0f); // Use 256 + bar sizes?
-			color_changed |= ImGui::ColorPicker4("##picker", reinterpret_cast<float*>(&field.valuePtr()->m_Color), picker_flags, &g.ColorPickerRef.x);
+			color_changed |= ImGui::ColorPicker4("##picker", reinterpret_cast<float*>(&field.value().m_Color), picker_flags, &g.ColorPickerRef.x);
 			ImGui::EndPopup();
 		}
 
@@ -309,14 +361,15 @@ namespace cheat::feature
 			opened_id = 0;
 			if (color_changed)
 			{
-				field.Check();
+				field.value().m_ContrastColor = ImGui::CalcContrastColor(field.value().m_Color);
+				field.FireChanged();
 				color_changed = false;
 			}
 		}
 
 		const ImU32 border_color = ImGui::GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
 		const ImRect clip_rect(frame_bb.Min.x, frame_bb.Min.y, frame_bb.Min.x + item_size.x, frame_bb.Min.y + item_size.y); // Not using frame_bb.Max because we have adjusted size
-		
+
 		float border_size = 2.0f;
 		float border_rounding = 10.0f;
 
@@ -342,11 +395,11 @@ namespace cheat::feature
 			window->DrawList->AddImageRounded(image, image_start, image_start + ImVec2(icon_size, icon_size), { 0.0f, 0.0f }, { 1.0f, 1.0f },
 				ImColor(1.0f, 1.0f, 1.0f), 0.3f);
 
-		bool pushed = ImGui::PushStyleColorWithContrast(field.value().m_Color, ImGuiCol_Text, ImColor(0,0,0), 2.0f);
+		bool pushed = ImGui::PushStyleColorWithContrast(field.value().m_Color, ImGuiCol_Text, ImColor(0, 0, 0), 2.0f);
 
 		ImVec2 text_end(frame_bb.Max.x - style.FramePadding.x - border_size, y_center + label_size.y / 2);
 		ImVec2 text_start(ImMax(image_end.x + style.FramePadding.x, text_end.x - label_size.x), y_center - label_size.y / 2);
-		ImGui::RenderTextClipped(text_start, text_end, label, NULL, NULL, {0, 0}, &clip_rect);
+		ImGui::RenderTextClipped(text_start, text_end, label, NULL, NULL, { 0, 0 }, &clip_rect);
 
 		if (pushed)
 			ImGui::PopStyleColor();
@@ -394,13 +447,17 @@ namespace cheat::feature
 		ADD_FILTER_FIELD(chest, PreciousChest);
 		ADD_FILTER_FIELD(chest, LuxuriousChest);
 		ADD_FILTER_FIELD(chest, RemarkableChest);
+		ADD_FILTER_FIELD(chest, SearchPoint);
 
 		ADD_FILTER_FIELD(featured, Anemoculus);
 		ADD_FILTER_FIELD(featured, CrimsonAgate);
 		ADD_FILTER_FIELD(featured, Electroculus);
 		ADD_FILTER_FIELD(featured, Electrogranum);
+		ADD_FILTER_FIELD(featured, FishingPoint);
 		ADD_FILTER_FIELD(featured, Geoculus);
+		ADD_FILTER_FIELD(featured, ItemDrops);
 		ADD_FILTER_FIELD(featured, KeySigil);
+		ADD_FILTER_FIELD(featured, Lumenspar);
 		ADD_FILTER_FIELD(featured, ShrineOfDepth);
 		ADD_FILTER_FIELD(featured, TimeTrialChallenge);
 
@@ -411,17 +468,34 @@ namespace cheat::feature
 		ADD_FILTER_FIELD(guide, RuinBrazier);
 		ADD_FILTER_FIELD(guide, Stormstone);
 
+		ADD_FILTER_FIELD(living, BakeDanuki);
 		ADD_FILTER_FIELD(living, BirdEgg);
+		ADD_FILTER_FIELD(living, Boar);
 		ADD_FILTER_FIELD(living, ButterflyWings);
+		ADD_FILTER_FIELD(living, Cat);
 		ADD_FILTER_FIELD(living, Crab);
+		ADD_FILTER_FIELD(living, Crane);
+		ADD_FILTER_FIELD(living, Crow);
 		ADD_FILTER_FIELD(living, CrystalCore);
+		ADD_FILTER_FIELD(living, Dog);
+		ADD_FILTER_FIELD(living, Eel);
+		ADD_FILTER_FIELD(living, Falcon);
+		ADD_FILTER_FIELD(living, Finch);
 		ADD_FILTER_FIELD(living, Fish);
+		ADD_FILTER_FIELD(living, Fox);
 		ADD_FILTER_FIELD(living, Frog);
+		ADD_FILTER_FIELD(living, Inu);
+		ADD_FILTER_FIELD(living, Kitsune);
 		ADD_FILTER_FIELD(living, LizardTail);
+		ADD_FILTER_FIELD(living, LucklightFly);
 		ADD_FILTER_FIELD(living, LuminescentSpine);
 		ADD_FILTER_FIELD(living, Onikabuto);
+		ADD_FILTER_FIELD(living, Pigeon);
+		ADD_FILTER_FIELD(living, Salamander);
+		ADD_FILTER_FIELD(living, Squirrel);
 		ADD_FILTER_FIELD(living, Starconch);
-		ADD_FILTER_FIELD(living, UnagiMeat);
+		ADD_FILTER_FIELD(living, Weasel);
+		ADD_FILTER_FIELD(living, Wigeon);
 
 		ADD_FILTER_FIELD(mineral, AmethystLump);
 		ADD_FILTER_FIELD(mineral, ArchaicStone);
@@ -432,30 +506,85 @@ namespace cheat::feature
 		ADD_FILTER_FIELD(mineral, IronChunk);
 		ADD_FILTER_FIELD(mineral, NoctilucousJade);
 		ADD_FILTER_FIELD(mineral, MagicalCrystalChunk);
+		ADD_FILTER_FIELD(mineral, ScarletQuartz);
 		ADD_FILTER_FIELD(mineral, StarSilver);
 		ADD_FILTER_FIELD(mineral, WhiteIronChunk);
 
+		// Trounce. Arranged by appearance in-game.
+		ADD_FILTER_FIELD(monster, Dvalin);
+		ADD_FILTER_FIELD(monster, Andrius);
+		ADD_FILTER_FIELD(monster, Tartaglia);
+		ADD_FILTER_FIELD(monster, Azhdaha);
+		ADD_FILTER_FIELD(monster, Signora);
+		ADD_FILTER_FIELD(monster, Shogun);
+		// Bosses. Arranged by "type" then alphabetical.
+		// Regisvines.
+		ADD_FILTER_FIELD(monster, CryoRegisvine);
+		ADD_FILTER_FIELD(monster, PyroRegisvine);
+		// Hypostases.
+		ADD_FILTER_FIELD(monster, AnemoHypostasis);
+		ADD_FILTER_FIELD(monster, CryoHypostasis);
+		ADD_FILTER_FIELD(monster, ElectroHypostasis);
+		ADD_FILTER_FIELD(monster, GeoHypostasis);
+		ADD_FILTER_FIELD(monster, HydroHypostasis);
+		ADD_FILTER_FIELD(monster, PyroHypostasis);
+		// Vishaps.
+		ADD_FILTER_FIELD(monster, CryoBathysmalVishap);
+		ADD_FILTER_FIELD(monster, ElectroBathysmalVishap);
+		ADD_FILTER_FIELD(monster, PrimoGeovishap);
+		// Oceanids.
+		ADD_FILTER_FIELD(monster, Oceanid);
+		ADD_FILTER_FIELD(monster, ThunderManifestation);
+		// Khaenri'ah.
+		ADD_FILTER_FIELD(monster, PerpetualMechanicalArray);
+		ADD_FILTER_FIELD(monster, RuinSerpent);
+		// Others.
+		ADD_FILTER_FIELD(monster, GoldenWolflord);
+		ADD_FILTER_FIELD(monster, MaguuKenki);
+		// Regular. Alphabetical.
 		ADD_FILTER_FIELD(monster, AbyssMage);
+		ADD_FILTER_FIELD(monster, BlackSerpentKnight);
+		ADD_FILTER_FIELD(monster, Cicin);
+		ADD_FILTER_FIELD(monster, ElectroAbyssLector);
+		ADD_FILTER_FIELD(monster, EyeOfTheStorm);
 		ADD_FILTER_FIELD(monster, FatuiAgent);
 		ADD_FILTER_FIELD(monster, FatuiCicinMage);
 		ADD_FILTER_FIELD(monster, FatuiMirrorMaiden);
 		ADD_FILTER_FIELD(monster, FatuiSkirmisher);
+		ADD_FILTER_FIELD(monster, FloatingFungus);
 		ADD_FILTER_FIELD(monster, Geovishap);
 		ADD_FILTER_FIELD(monster, GeovishapHatchling);
 		ADD_FILTER_FIELD(monster, Hilichurl);
+		ADD_FILTER_FIELD(monster, HydroAbyssHerald);
+		ADD_FILTER_FIELD(monster, HydroHypostasisSummon);
+		ADD_FILTER_FIELD(monster, Kairagi);
+		ADD_FILTER_FIELD(monster, Millelith);
 		ADD_FILTER_FIELD(monster, Mitachurl);
 		ADD_FILTER_FIELD(monster, Nobushi);
+		ADD_FILTER_FIELD(monster, OceanidBoar);
+		ADD_FILTER_FIELD(monster, OceanidCrab);
+		ADD_FILTER_FIELD(monster, OceanidCrane);
+		ADD_FILTER_FIELD(monster, OceanidFalcon);
+		ADD_FILTER_FIELD(monster, OceanidFinch);
+		ADD_FILTER_FIELD(monster, OceanidFrog);
+		ADD_FILTER_FIELD(monster, OceanidSquirrel);
+		ADD_FILTER_FIELD(monster, OceanidWigeon);
+		ADD_FILTER_FIELD(monster, PyroAbyssLector);
+		ADD_FILTER_FIELD(monster, Rifthound);
+		ADD_FILTER_FIELD(monster, RifthoundWhelp);
 		ADD_FILTER_FIELD(monster, RuinGuard);
 		ADD_FILTER_FIELD(monster, RuinHunter);
 		ADD_FILTER_FIELD(monster, RuinSentinel);
 		ADD_FILTER_FIELD(monster, Samachurl);
+		ADD_FILTER_FIELD(monster, SangonomiyaCohort);
 		ADD_FILTER_FIELD(monster, ShadowyHusk);
+		ADD_FILTER_FIELD(monster, ShadowyHusk);
+		ADD_FILTER_FIELD(monster, ShogunateInfantry);
 		ADD_FILTER_FIELD(monster, Slime);
 		ADD_FILTER_FIELD(monster, Specter);
 		ADD_FILTER_FIELD(monster, TreasureHoarder);
 		ADD_FILTER_FIELD(monster, UnusualHilichurl);
 		ADD_FILTER_FIELD(monster, Whopperflower);
-		ADD_FILTER_FIELD(monster, WolvesOfTheRift);
 
 		ADD_FILTER_FIELD(plant, AmakumoFruit);
 		ADD_FILTER_FIELD(plant, Apple);
@@ -510,7 +639,10 @@ namespace cheat::feature
 		ADD_FILTER_FIELD(puzzle, LargeRockPile);
 		ADD_FILTER_FIELD(puzzle, LightUpTilePuzzle);
 		ADD_FILTER_FIELD(puzzle, LightningStrikeProbe);
+		ADD_FILTER_FIELD(puzzle, LumenCage);
+		ADD_FILTER_FIELD(puzzle, LuminousSeelie);
 		ADD_FILTER_FIELD(puzzle, MistBubble);
+		ADD_FILTER_FIELD(puzzle, OozingConcretions);
 		ADD_FILTER_FIELD(puzzle, PirateHelm);
 		ADD_FILTER_FIELD(puzzle, PressurePlate);
 		ADD_FILTER_FIELD(puzzle, Seelie);
@@ -518,10 +650,11 @@ namespace cheat::feature
 		ADD_FILTER_FIELD(puzzle, SmallRockPile);
 		ADD_FILTER_FIELD(puzzle, StormBarrier);
 		ADD_FILTER_FIELD(puzzle, SwordHilt);
+		ADD_FILTER_FIELD(puzzle, Temari);
 		ADD_FILTER_FIELD(puzzle, TorchPuzzle);
 		ADD_FILTER_FIELD(puzzle, UniqueRocks);
+		ADD_FILTER_FIELD(puzzle, WarmingSeelie);
 		ADD_FILTER_FIELD(puzzle, WindmillMechanism);
 	}
 #undef ADD_FILTER_FIELD
 }
-

@@ -7,41 +7,39 @@
 
 namespace cheat::feature 
 {
-	static void AvatarPropDictionary_SetItem_Hook(app::Dictionary_2_JNHGGGCKJNA_JKNLDEEBGLL_* __this, app::JNHGGGCKJNA key,
-		app::JKNLDEEBGLL value, MethodInfo* method);
-
     InfiniteStamina::InfiniteStamina() : Feature(),
-        NF(m_Enabled, "Inifinite stamina", "InfiniteStamina", false),
-        NF(m_PacketReplacement, "Move sync packet replacement", "InfiniteStamina", false)
+        NF(f_Enabled, "Infinite stamina", "InfiniteStamina", false),
+        NF(f_PacketReplacement, "Move sync packet replacement", "InfiniteStamina", false)
     {
-		HookManager::install(app::AvatarPropDictionary_SetItem, AvatarPropDictionary_SetItem_Hook);
+		HookManager::install(app::DataItem_HandleNormalProp, DataItem_HandleNormalProp_Hook);
 
 		events::MoveSyncEvent += MY_METHOD_HANDLER(InfiniteStamina::OnMoveSync);
     }
 
     const FeatureGUIInfo& InfiniteStamina::GetGUIInfo() const
     {
-        static const FeatureGUIInfo info { "Infinite stamina", "Player", true };
+        static const FeatureGUIInfo info { "Infinite Stamina", "Player", true };
         return info;
     }
 
     void InfiniteStamina::DrawMain()
     {
-		ConfigWidget("Enabled", m_Enabled, "Enables infinite stamina option.");
-		ConfigWidget(m_PacketReplacement,
+		ConfigWidget("Enabled", f_Enabled, "Enables infinite stamina option.");
+
+		ConfigWidget("Move Sync Packet Replacement", f_PacketReplacement,
 			"This mode prevents sending server packets with stamina cost actions,\n" \
-            "(etc. swim, climb, sprint..).\n" \
-            "NOTE. This is may be more safe than the standard method. More testing is needed.");
+			"e.g. swim, climb, sprint, etc.\n" \
+			"NOTE: This is may be more safe than the standard method. More testing is needed.");
     }
 
     bool InfiniteStamina::NeedStatusDraw() const
 {
-        return m_Enabled;
+        return f_Enabled;
     }
 
     void InfiniteStamina::DrawStatus() 
     { 
-        ImGui::Text("Inf stamina [%s]", m_PacketReplacement ? "Packet" : "Normal");
+        ImGui::Text("Inf. Stamina [%s]", f_PacketReplacement ? "Packet" : "Normal");
     }
 
     InfiniteStamina& InfiniteStamina::GetInstance()
@@ -58,7 +56,7 @@ namespace cheat::feature
 	{
 		using PT = app::PropType__Enum;
 
-		return !m_Enabled || m_PacketReplacement ||
+		return !f_Enabled || f_PacketReplacement ||
 					(propType != PT::PROP_MAX_STAMINA &&
 				     propType != PT::PROP_CUR_PERSIST_STAMINA &&
 					 propType != PT::PROP_CUR_TEMPORARY_STAMINA);
@@ -76,7 +74,7 @@ namespace cheat::feature
 			return;
 
 		// LOG_DEBUG("Movement packet: %s", magic_enum::enum_name(syncInfo->fields.motionState).data());
-		if (m_Enabled && m_PacketReplacement)
+		if (f_Enabled && f_PacketReplacement)
 		{
 			auto state = syncInfo->fields.motionState;
 			switch (state)
@@ -104,13 +102,15 @@ namespace cheat::feature
 				afterDash = state == app::MotionState__Enum::MotionDash;
 		}
 	}
-
-	static void AvatarPropDictionary_SetItem_Hook(app::Dictionary_2_JNHGGGCKJNA_JKNLDEEBGLL_* __this, app::JNHGGGCKJNA key, app::JKNLDEEBGLL value, MethodInfo* method)
+	
+	void InfiniteStamina::DataItem_HandleNormalProp_Hook(app::DataItem* __this, uint32_t type, int64_t value, app::DataPropOp__Enum state, MethodInfo* method)
 	{
-		app::PropType__Enum propType = app::AvatarProp_DecodePropType(nullptr, key, nullptr);
-		auto& infiniteStamina = InfiniteStamina::GetInstance();
-		if (infiniteStamina.OnPropertySet(propType))
-			callOrigin(AvatarPropDictionary_SetItem_Hook, __this, key, value, method);
+		auto& infiniteStamina = GetInstance();
+
+		auto propType = static_cast<app::PropType__Enum>(type);
+		bool isValid = infiniteStamina.OnPropertySet(propType);
+		if (isValid)
+			CALL_ORIGIN(DataItem_HandleNormalProp_Hook, __this, type, value, state, method);
 	}
 }
 

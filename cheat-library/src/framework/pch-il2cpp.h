@@ -29,19 +29,28 @@
 #include <Windows.h>
 
 #include <cheat-base/Logger.h>
-#include <cheat-base/config/Config.h>
+#include <cheat-base/config/config.h>
 #include <cheat-base/util.h>
-#include <cheat-base/cheat/CheatManager.h>
+#include <cheat-base/cheat/CheatManagerBase.h>
 #include <cheat-base/cheat/Feature.h>
-#include <cheat-base/cheat/IGameMisc.h>
 #include <cheat-base/cheat/misc/Settings.h>
 #include <cheat-base/PipeTransfer.h>
 #include <cheat-base/HookManager.h>
 #include <cheat-base/Patch.h>
-#include <cheat-base/Event.h>
 #include <cheat-base/render/gui-util.h>
 #include <cheat-base/render/ImageLoader.h>
 
+#include <cheat-base/events/event.hpp>
+#include <cheat-base/events/handlers/methodeventhandler.hpp>
+#include <cheat-base/events/handlers/functoreventhandler.hpp>
+#include <cheat-base/events/joins/handlereventjoin.hpp>
+#include <cheat-base/events/joins/eventjoinwrapper.hpp>
+
+#include <cheat-base/ResourceLoader.h>
+
+#include <cheat-base/globals.h>
+
 #include <imgui.h>
+#include <imgui_notify.h>
 
 #endif //PCH_IL2CPP_H

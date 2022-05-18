@@ -2,17 +2,18 @@
 #include "cheat.h"
 
 #include <helpers.h>
-#include <resource.h>
 
 #include <cheat/events.h>
-#include <cheat/GenshinMisc.h>
 
 #include <cheat-base/cheat/misc/Settings.h>
 
 #include <cheat/misc/ProtectionBypass.h>
-#include <cheat/misc/sniffer/PacketSniffer.h>
 #include <cheat/misc/Hotkeys.h>
 #include <cheat/misc/Debug.h>
+
+#ifdef _PACKET_SNIFFER
+#include <cheat/misc/sniffer/PacketSniffer.h>
+#endif
 
 #include <cheat/player/GodMode.h>
 #include <cheat/player/InfiniteStamina.h>
@@ -23,42 +24,51 @@
 #include <cheat/world/AutoLoot.h>
 #include <cheat/world/DialogSkip.h>
 #include <cheat/world/DumbEnemies.h>
+#include <cheat/world/ElementalSight.h>
 #include <cheat/world/KillAura.h>
 #include <cheat/world/MobVacuum.h>
-#include <cheat/world/MobAnimalVacuum.h>
 #include <cheat/world/AutoTreeFarm.h>
-#include <cheat/world/AutoOreDestroy.h>
+#include <cheat/world/AutoDestroy.h>
 
 #include <cheat/teleport/ChestTeleport.h>
 #include <cheat/teleport/MapTeleport.h>
 #include <cheat/teleport/OculiTeleport.h>
+#include <cheat/teleport/CustomTeleports.h>
 
 #include <cheat/esp/ESP.h>
+#include <cheat/imap/InteractiveMap.h>
 
-#include <cheat/ILPatternScanner.h>
+#include <cheat/world/AutoFish.h>
+
+#include <cheat/visuals/NoFog.h>
+#include <cheat/visuals/FPSUnlock.h>
+#include <cheat/visuals/CameraZoom.h>
+
+#include "GenshinCM.h"
 
 namespace cheat 
 {
 	static void InstallEventHooks();
 
-	void Init(HMODULE hModule)
+	void Init()
 	{
-		ImageLoader::SetHandle(hModule);
+		config::SetupUpdate(&events::GameUpdateEvent);
 
 		auto& protectionBypass = feature::ProtectionBypass::GetInstance();
 		protectionBypass.Init();
 
-		InstallEventHooks();
-
-		CheatManager& manager = CheatManager::GetInstance();
+		GenshinCM& manager = GenshinCM::instance();
 
 #define FEAT_INST(name) &feature::##name##::GetInstance()
 		manager.AddFeatures({
 			&protectionBypass,
 			FEAT_INST(Settings),
-			FEAT_INST(PacketSniffer),
 			FEAT_INST(Hotkeys),
 			FEAT_INST(Debug),
+
+#ifdef _PACKET_SNIFFER
+			FEAT_INST(PacketSniffer),
+#endif
 
 			FEAT_INST(GodMode),
 			FEAT_INST(InfiniteStamina),
@@ -68,18 +78,26 @@ namespace cheat
 
 			FEAT_INST(AutoLoot),
 			FEAT_INST(AutoTreeFarm),
-			FEAT_INST(AutoOreDestroy),
+			FEAT_INST(AutoDestroy),
 			FEAT_INST(DialogSkip),
 			FEAT_INST(DumbEnemies),
+			FEAT_INST(ElementalSight),
 			FEAT_INST(KillAura),
 			FEAT_INST(MobVacuum),
-			FEAT_INST(MobAnimalVacuum),
 
 			FEAT_INST(ChestTeleport),
 			FEAT_INST(OculiTeleport),
 			FEAT_INST(MapTeleport),
+			FEAT_INST(CustomTeleports),
 
-			FEAT_INST(ESP)
+			FEAT_INST(ESP),
+			FEAT_INST(InteractiveMap),
+
+			FEAT_INST(AutoFish),
+
+			FEAT_INST(NoFog),
+			FEAT_INST(FPSUnlock),
+			FEAT_INST(CameraZoom)
 
 			});
 #undef FEAT_INST
@@ -89,6 +107,7 @@ namespace cheat
 			"World",
 			"Teleport",
 			"ESP",
+			"Visuals",
 			"Hotkeys",
 			"Settings",
 			"Debug"
@@ -96,26 +115,46 @@ namespace cheat
 
 		LPBYTE pFontData = nullptr;
 		DWORD dFontSize = 0;
-		if (!util::LoadModuleResource(hModule, IDR_RCDATA1, RT_RCDATA, pFontData, dFontSize))
+		if (!ResourceLoader::LoadEx("ImGui_Font", RT_RCDATA, pFontData, dFontSize))
 			LOG_WARNING("Failed to get font from resources.");
 
-		manager.Init(pFontData, dFontSize, &GenshinMisc::GetInstance());
+		manager.Init(pFontData, dFontSize);
+
+		InstallEventHooks();
+	}
+
+	static void CheckAccountChanged()
+	{
+		UPDATE_DELAY(2000U);
+
+		static uint32_t _lastUserID = 0;
+
+		auto playerModule = GET_SINGLETON(PlayerModule);
+		if (playerModule == nullptr || playerModule->fields._accountData_k__BackingField == nullptr)
+			return;
+
+		auto& accountData = playerModule->fields._accountData_k__BackingField->fields;
+		if (_lastUserID != accountData.userId)
+			events::AccountChangedEvent(accountData.userId);
+
+		_lastUserID = accountData.userId;
 	}
 
 	static void GameManager_Update_Hook(app::GameManager* __this, MethodInfo* method)
 	{
 		SAFE_BEGIN();
 		events::GameUpdateEvent();
+		CheckAccountChanged();
 		SAFE_EEND();
 		
-		callOrigin(GameManager_Update_Hook, __this, method);
+		CALL_ORIGIN(GameManager_Update_Hook, __this, method);
 	}
 
 	static void LevelSyncCombatPlugin_RequestSceneEntityMoveReq_Hook(app::BKFGGJFIIKC* __this, uint32_t entityId, app::MotionInfo* syncInfo,
 		bool isReliable, uint32_t relseq, MethodInfo* method)
 	{
 		events::MoveSyncEvent(entityId, syncInfo);
-		callOrigin(LevelSyncCombatPlugin_RequestSceneEntityMoveReq_Hook, __this, entityId, syncInfo, isReliable, relseq, method);
+		CALL_ORIGIN(LevelSyncCombatPlugin_RequestSceneEntityMoveReq_Hook, __this, entityId, syncInfo, isReliable, relseq, method);
 	}
 
 	static void InstallEventHooks() 

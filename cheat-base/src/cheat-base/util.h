@@ -11,6 +11,21 @@
 
 #define LOG_LAST_ERROR(fmt, ...) util::LogLastError(__FILE__, __LINE__, fmt, __VA_ARGS__)
 
+#define UPDATE_DELAY(delay) \
+							static ULONGLONG s_LastUpdate = 0;       \
+                            ULONGLONG currentTime = GetTickCount64();\
+                            if (s_LastUpdate + (delay) > currentTime)  \
+                                return;                              \
+							s_LastUpdate = currentTime;
+
+#define UPDATE_DELAY_VAR(type, name, delay) \
+							static type name = {};                   \
+							static ULONGLONG s_LastUpdate = 0;       \
+                            ULONGLONG currentTime = GetTickCount64();\
+                            if (s_LastUpdate + (delay) > currentTime)  \
+                                return name;                         \
+                            s_LastUpdate = currentTime;
+
 namespace util 
 {
 	std::optional<std::string> SelectFile(const char* filter, const char* title);
@@ -18,8 +33,6 @@ namespace util
 	std::optional<std::string> GetOrSelectPath(CSimpleIni& ini, const char* section, const char* name, const char* friendName, const char* filter);
 
 	std::string GetLastErrorAsString(DWORD errorId = 0);
-	bool LoadModuleResource(HINSTANCE hInstance, const char* name, const char* type, LPBYTE& pDest, DWORD& size);
-	bool LoadModuleResource(HINSTANCE hInstance, int resId, const char* type, LPBYTE& pDest, DWORD& size);
 	int64_t GetCurrentTimeMillisec();
 
 	std::vector<std::string> StringSplit(const std::string& delimiter, const std::string& content);
@@ -50,7 +63,7 @@ namespace util
 	}
 
 	template<class T>
-	static T ReadValue(void* data, int offset, bool littleEndian = false)
+	static T ReadMapped(void* data, int offset, bool littleEndian = false)
 	{
 		char* cData = (char*)data;
 		T result = {};
