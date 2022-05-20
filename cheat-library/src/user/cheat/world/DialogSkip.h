@@ -1,6 +1,6 @@
 #pragma once
 #include <cheat-base/cheat/Feature.h>
-#include <cheat-base/config/Config.h>
+#include <cheat-base/config/config.h>
 
 namespace cheat::feature 
 {
@@ -8,10 +8,11 @@ namespace cheat::feature
 	class DialogSkip : public Feature
     {
 	public:
-		config::field::ToggleField m_Enabled;
-		config::field::ToggleField m_AutoSelectDialog;
-		config::field::ToggleField m_ExcludeImportant;
-		config::field::ToggleField m_FastDialog;
+		config::Field<config::Toggle<Hotkey>> f_Enabled;
+		config::Field<config::Toggle<Hotkey>> f_AutoSelectDialog;
+		config::Field<config::Toggle<Hotkey>> f_ExcludeImportant;
+		config::Field<config::Toggle<Hotkey>> f_FastDialog;
+		config::Field<float> f_TimeSpeedup;
 
 		static DialogSkip& GetInstance();
 

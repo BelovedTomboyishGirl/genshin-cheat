@@ -22,10 +22,12 @@ namespace cheat::feature
 
     static bool ActorAbilityPlugin_OnEvent_Hook(void* __this, app::BaseEvent* e, MethodInfo* method);
     void OnGameUpdate();
+    static bool csvFriendly = true;
+    static bool includeHeaders = true;
 
 	Debug::Debug() : Feature()
 	{
-        events::GameUpdateEvent += FREE_METHOD_HANDLER(OnGameUpdate);
+        events::GameUpdateEvent += FUNCTION_HANDLER(OnGameUpdate);
 		HookManager::install(app::ActorAbilityPlugin_OnEvent, ActorAbilityPlugin_OnEvent_Hook);
 		// HookManager::install(app::LuaShellManager_ReportLuaShellResult, LuaShellManager_ReportLuaShellResult_Hook);
 		// HookManager::install(app::LuaShellManager_DoString, LuaShellManager_DoString_Hook);
@@ -78,13 +80,13 @@ namespace cheat::feature
 
 #undef printString
 
-        callOrigin(SendInfo_Hook, __this, info, method);
+        CALL_ORIGIN(SendInfo_Hook, __this, info, method);
     }
 
     static void Lua_xlua_pushasciistring_Hook(void* __this, void* L, app::String* str, MethodInfo* method)
     {
         LOG_DEBUG("Pushed string: %s", il2cppi_to_string(str).c_str());
-        callOrigin(Lua_xlua_pushasciistring_Hook, __this, L, str, method);
+        CALL_ORIGIN(Lua_xlua_pushasciistring_Hook, __this, L, str, method);
     }
 
     static int checkCount = 0;
@@ -95,27 +97,27 @@ namespace cheat::feature
             LOG_DEBUG("After size %d; name: %s", chunk->bounds == nullptr ? chunk->max_length : chunk->bounds->length, il2cppi_to_string(chunkName).c_str());
             checkCount--;
         }
-        return callOrigin(LuaEnv_DoString_Hook, __this, chunk, chunkName, env, method);
+        return CALL_ORIGIN(LuaEnv_DoString_Hook, __this, chunk, chunkName, env, method);
     }
 
     static void LuaShellManager_DoString_Hook(void* __this, app::Byte__Array* byteArray, MethodInfo* method)
     {
         LOG_DEBUG("Size %d", byteArray->bounds == nullptr ? byteArray->max_length : byteArray->bounds->length);
         checkCount = 10;
-        callOrigin(LuaShellManager_DoString_Hook, __this, byteArray, method);
+        CALL_ORIGIN(LuaShellManager_DoString_Hook, __this, byteArray, method);
     }
 
     static void LuaShellManager_ReportLuaShellResult_Hook(void* __this, app::String* type, app::String* value, MethodInfo* method)
     {
         std::cout << "Type: " << il2cppi_to_string(type) << std::endl;
         std::cout << "Value: " << il2cppi_to_string(value) << std::endl;
-        callOrigin(LuaShellManager_ReportLuaShellResult_Hook, __this, type, value, method);
+        CALL_ORIGIN(LuaShellManager_ReportLuaShellResult_Hook, __this, type, value, method);
     }
 
     static bool ActorAbilityPlugin_OnEvent_Hook(void* __this, app::BaseEvent* e, MethodInfo* method)
     {
         // LOG_DEBUG("Fire event: %s, targetID %u", magic_enum::enum_name(e->fields.eventID).data(), e->fields.targetID);
-        return callOrigin(ActorAbilityPlugin_OnEvent_Hook, __this, e, method);
+        return CALL_ORIGIN(ActorAbilityPlugin_OnEvent_Hook, __this, e, method);
     }
 
     static void DrawWaypoints(UniDict<uint32_t, UniDict<uint32_t, app::MapModule_ScenePointData>*>* waypointsGrops)
@@ -193,6 +195,291 @@ namespace cheat::feature
         ImGui::Text("Entity name: %s", entity->name().c_str());
     }
 
+    void CopyEntityDetailsToClipboard(std::vector<game::Entity*> entities)
+    {
+        std::string entitiesDetails = "";
+        if (csvFriendly && includeHeaders)
+            entitiesDetails.append("Entity,RuntimeID,Name,PosX,PosY,PosZ\n");
+        for (auto entity : entities) {
+            auto entityPos = entity->absolutePosition();
+            std::string baseString = csvFriendly ? "{},{},{},{},{},{}" : "{} {} {} x={} y={} z={}";
+            auto entityDetails = fmt::format(baseString,
+                fmt::ptr(entity),
+                entity->runtimeID(),
+                entity->name().c_str(),
+                entityPos.x, entityPos.y, entityPos.z
+            );
+            entitiesDetails.append(entityDetails);
+            entitiesDetails.append("\n");
+        }
+        ImGui::SetClipboardText(entitiesDetails.c_str());
+    }
+
+    void CopyEntityDetailsToClipboard(game::Entity* entity)
+    {
+        auto entityPos = entity->absolutePosition();
+        std::string headerString = "Entity,RuntimeID,Name,PosX,PosY,PosZ\n";
+        std::string baseString = csvFriendly ? "{},{},{},{},{},{}" : "{} {} {} x={} y={} z={}";
+        if (csvFriendly && includeHeaders)
+            baseString = headerString.append(baseString);
+        auto entityDetails = fmt::format(baseString,
+            fmt::ptr(entity),
+            entity->runtimeID(),
+            entity->name().c_str(),
+            entityPos.x, entityPos.y, entityPos.z
+        );
+        ImGui::SetClipboardText(entityDetails.c_str());
+    }
+
+    void DrawCombatDetails(game::Entity* entity)
+    {
+        auto combat = entity->combat();
+        if (combat != nullptr) {
+            auto combatProp = combat->fields._combatProperty_k__BackingField;
+            auto maxHP = app::SafeFloat_GetValue(nullptr, combatProp->fields.maxHP, nullptr);
+            auto HP = app::SafeFloat_GetValue(nullptr, combatProp->fields.HP, nullptr);
+            auto isLockHp = combatProp->fields.islockHP == nullptr || app::FixedBoolStack_get_value(combatProp->fields.islockHP, nullptr);
+            auto isInvincible = combatProp->fields.isInvincible == nullptr || app::FixedBoolStack_get_value(combatProp->fields.isInvincible, nullptr);
+            ImGui::BeginTooltip();
+            ImGui::Text("Combat: %s", combat == nullptr ? "No" : "Yes");
+            ImGui::Text("Combat Prop: %s", combatProp == nullptr ? "No" : "Yes");
+            ImGui::Text("HP Curr/Max: %.01f/%.01f", HP, maxHP);
+            ImGui::Text("Locked HP: %s", isLockHp ? "Yes" : "No");
+            ImGui::Text("Invincible: %s", isInvincible ? "Yes" : "No");
+            ImGui::EndTooltip();
+        }
+    }
+
+    void DrawEntityActionButtons(game::Entity* entity, bool& csvFriendly)
+    {
+        auto& manager = game::EntityManager::instance();
+
+        if (ImGui::SmallButton("T"))
+        {
+            auto& mapTeleport = MapTeleport::GetInstance();
+            mapTeleport.TeleportTo(entity->absolutePosition());
+        };
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Teleport");
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton("S"))
+            entity->setRelativePosition(manager.avatar()->relativePosition());
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Summon");
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton("B"))
+            entity->setRelativePosition({ 0, 0, 0 });
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Banish");
+
+        ImGui::SameLine();
+        if (ImGui::SmallButton("C"))
+            CopyEntityDetailsToClipboard(entity);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Copy Details");
+    }
+
+    std::vector<game::Entity*> SortEntities(std::vector<game::Entity*> entities, Debug::EntitySortCondition condition)
+    {
+        switch (condition) {
+        case Debug::EntitySortCondition::RuntimeID: {
+            std::sort(entities.begin(),
+                entities.end(),
+                [](game::Entity* e1, game::Entity* e2) {
+                    auto s1 = e1->runtimeID();
+                    auto s2 = e2->runtimeID();
+                    return s1 < s2;
+                });
+            break;
+        }
+        case Debug::EntitySortCondition::Name: {
+            std::sort(entities.begin(),
+                entities.end(),
+                [](game::Entity* e1, game::Entity* e2) {
+                    auto s1 = e1->name().c_str();
+                    auto s2 = e2->name().c_str();
+                    return s1 < s2;
+                });
+            break;
+        }
+        case Debug::EntitySortCondition::Distance: {
+            std::sort(entities.begin(),
+                entities.end(),
+                [](game::Entity* e1, game::Entity* e2) {
+                    auto& manager = game::EntityManager::instance();
+                    return manager.avatar()->distance(e1) < manager.avatar()->distance(e2);
+                });
+            break;
+        }
+        default:
+            break;
+        }
+        return entities;
+    }
+
+    void TeleportByCondition(std::vector<game::Entity*> entities, Debug::TeleportCondition condition)
+    {
+        auto& manager = game::EntityManager::instance();
+        auto& mapTeleport = MapTeleport::GetInstance();
+
+        // Opted for this instead of min_/max_element to guarantee no voodoo magic happens.
+        // We'll go for min_/max_element later on if we want to implement weird sorts like
+        // lowest HP/highest HP/etc. Even then, that will be in SortEntities, not here.
+        // Like so: SortEntities(entities, Debug::EntitySortCondition::Health);
+        auto sortedEntities = SortEntities(entities, Debug::EntitySortCondition::Distance);
+        // Always have a default target!
+        auto target = sortedEntities.front();
+
+        // Keeping this as a switch statement instead of ternary. We don't know yet how
+        // many cases we want to keep supporting. Ternary is cleaner, but not a big
+        // performance hit if we keep a switch statement.
+        switch (condition) {
+            case Debug::TeleportCondition::Closest: {
+                // We've already selected this.
+                break;
+            }
+            case Debug::TeleportCondition::Farthest: {
+                target = sortedEntities.back();
+                break;
+            }
+        }
+        
+        // Separating this logic to keep it clean and consistent.
+        if (target != nullptr)
+        {
+            auto targetDist = manager.avatar()->distance(target);
+            if (targetDist > 30.0f)
+                mapTeleport.TeleportTo(target->absolutePosition());
+            else manager.avatar()->setRelativePosition(target->relativePosition());
+        }
+    }
+
+    void SummonEntities(game::Entity* entity)
+    {
+        auto& manager = game::EntityManager::instance();
+        entity->setRelativePosition(manager.avatar()->relativePosition());
+    }
+
+    void SummonEntities(std::vector<game::Entity*> entities)
+    {
+        for (auto entity : entities)
+            SummonEntities(entity);
+    }
+
+    void BanishEntities(game::Entity* entity)
+    {
+        entity->setRelativePosition({ 0, 0, 0 });
+    }
+
+    void BanishEntities(std::vector<game::Entity*> entities)
+    {
+        for (auto entity : entities)
+            BanishEntities(entity);
+    }
+
+    void DrawEntityGroupActionButtons(std::vector<game::Entity*> entities, bool& csvFriendly, bool& includeHeaders)
+    {
+        auto& manager = game::EntityManager::instance();
+
+        if (ImGui::Button("Teleport: Closest"))
+            TeleportByCondition(entities, Debug::TeleportCondition::Closest);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Teleport: Farthest"))
+            TeleportByCondition(entities, Debug::TeleportCondition::Farthest);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Summon All"))
+            SummonEntities(entities);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Banish All"))
+            BanishEntities(entities);
+
+        ImGui::SameLine();
+        if (ImGui::Button("Copy All Details"))
+            CopyEntityDetailsToClipboard(entities);
+
+        ImGui::SameLine();
+        ImGui::Checkbox("CSV Friendly", &csvFriendly);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Uses comma separation and removes xyz from pos on copy.");
+
+        if (csvFriendly) {
+            ImGui::SameLine();
+            ImGui::Checkbox("Include Headers", &includeHeaders);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Includes headers when copying.");
+        }
+    }
+
+    void DrawEntitiesTable(std::vector<game::Entity*> entities)
+    {
+        auto& manager = game::EntityManager::instance();
+        auto clipSize = min(entities.size(), 15) + 1; // Number of rows in table as initial view. Past this is scrollbar territory.
+
+        static ImGuiTableFlags flags =
+            ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable // | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
+            | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody
+            | ImGuiTableFlags_ScrollY;
+        if (ImGui::BeginTable("EntityTable", 8, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * clipSize), 0.0f))
+        {
+            ImGui::TableSetupColumn("Commands", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthFixed, 0.0, 0);
+            ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 0.0f, 1);
+            ImGui::TableSetupColumn("RuntimeID", ImGuiTableColumnFlags_WidthFixed, 0.0f, 2);
+            ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 0.0f, 3);
+            ImGui::TableSetupColumn("Distance", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortAscending | ImGuiTableColumnFlags_WidthFixed, 0.0, 4);
+            ImGui::TableSetupColumn("Pos.x", ImGuiTableColumnFlags_WidthFixed, 0.0, 5);
+            ImGui::TableSetupColumn("Pos.y", ImGuiTableColumnFlags_WidthFixed, 0.0, 6);
+            ImGui::TableSetupColumn("Pos.z", ImGuiTableColumnFlags_WidthFixed, 0.0, 7);
+            ImGui::TableSetupScrollFreeze(0, 1);
+            ImGui::TableHeadersRow();
+
+            ImGuiListClipper clipper;
+            clipper.Begin(entities.size());
+            while (clipper.Step())
+                for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++)
+                {
+                    auto entity = entities[row_n];
+                    auto entityPos = entity->absolutePosition();
+
+                    ImGui::PushID(entity->runtimeID());
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+
+                    DrawEntityActionButtons(entity, csvFriendly);
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("0x%p", entity);
+                    if (ImGui::IsItemHovered())
+                        DrawCombatDetails(entity);
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%u", entity->runtimeID());
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%s", entity->name().c_str());
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%.3fm", manager.avatar()->distance(entity));
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%.04f", entityPos.x);
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%.04f", entityPos.y);
+                    ImGui::TableNextColumn();
+
+                    ImGui::Text("%.04f", entityPos.z);
+
+                    ImGui::PopID();
+                }
+            ImGui::EndTable();
+        }
+    }
+
     static void DrawEntitiesData()
     {
         static bool typeFilters[0x63] = {};
@@ -207,255 +494,180 @@ namespace cheat::feature
         static char objectNameFilter[128] = {};
         static float radius = 0.0f;
         static bool useRadius = false;
+        static bool groupByType = true;
+        static int typeFiltersColCount = 5;
 
         static bool checkOnlyShells = false;
         static bool showEmptyTypes = false;
+        static Debug::EntitySortCondition sortCondition = Debug::EntitySortCondition::Distance;
+        static ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyScroll | 
+            ImGuiTabBarFlags_NoCloseWithMiddleMouseButton | ImGuiTabBarFlags_TabListPopupButton;
 
         auto& manager = game::EntityManager::instance();
         auto entities = manager.entities();
+        auto entries = magic_enum::enum_entries<app::EntityType__Enum_1>();
+
+        std::vector<std::pair<app::EntityType__Enum_1, std::string_view>> sortedEntries;
+        sortedEntries.insert(sortedEntries.begin(), std::begin(entries), std::end(entries));
+        std::sort(sortedEntries.begin(), sortedEntries.end(), [](auto a1, auto a2) {
+            return a1.second < a2.second;
+            });
 
         ImGuiContext& g = *GImGui;
         ImGuiIO& io = g.IO;
 
-        ImGui::Text("Entity count %d", entities.size());
+        ImGui::Text("Entity Count %d", entities.size());
 
-        ImGui::Checkbox("## Enable object name filter", &useObjectNameFilter); ImGui::SameLine();
+        ImGui::Checkbox("## Enable Object Name Filter", &useObjectNameFilter); ImGui::SameLine();
         if (!useObjectNameFilter)
             ImGui::BeginDisabled();
-        ImGui::InputText("Entity name filter", objectNameFilter, 128);
+        ImGui::InputText("Entity Name Filter", objectNameFilter, 128);
         if (!useObjectNameFilter)
             ImGui::EndDisabled();
 
 
-        ImGui::Checkbox("Filter by radius", &useRadius);
+        ImGui::Checkbox("Filter by Radius", &useRadius);
         if (!useRadius)
             ImGui::BeginDisabled();
             
         ImGui::SameLine();
+        ImGui::PushItemWidth(200.0);
         ImGui::SliderFloat("Radius", &radius, 0.0f, 100.0f);
+        ImGui::PopItemWidth();
         if (!useRadius)
             ImGui::EndDisabled();
-            
-        ImGui::Checkbox("Show empty types", &showEmptyTypes);
-        ImGui::Checkbox("Show only oculi", &checkOnlyShells);
 
-        if (ImGui::TreeNode("Type Filter"))
+        if (ImGui::BeginTabBar("EntityManagerTabBar", tab_bar_flags))
         {
-            if (ImGui::Button("Select all"))
-                std::fill_n(typeFilters, 0x63, true);
-            ImGui::SameLine();
-
-            if (ImGui::Button("Deselect all"))
-                std::fill_n(typeFilters, 0x63, false);
-
-            int columns = 2;
-            if (ImGui::BeginTable("Type filter table", columns, ImGuiTableFlags_NoBordersInBody))
+            if (ImGui::BeginTabItem("Type Filter"))
             {
-                auto entries = magic_enum::enum_entries<app::EntityType__Enum_1>();
-                for (const auto& [value, name] : entries)
+                if (ImGui::Button("Select All"))
+                    std::fill_n(typeFilters, 0x63, true);
+                ImGui::SameLine();
+
+                if (ImGui::Button("Deselect All"))
+                    std::fill_n(typeFilters, 0x63, false);
+                ImGui::SameLine();
+
+                ImGui::PushItemWidth(100.0);
+                ImGui::SliderInt("No. of Columns", &typeFiltersColCount, 2, 5);
+                ImGui::PopItemWidth();
+
+                if (ImGui::BeginTable("Type Filter Table", typeFiltersColCount, ImGuiTableFlags_NoBordersInBody))
                 {
-                    ImGui::TableNextColumn();
-                    ImGui::Checkbox(name.data(), &typeFilters[(int)value]);
+                    for (const auto& [value, name] : sortedEntries)
+                    {
+                        ImGui::TableNextColumn();
+                        ImGui::Checkbox(name.data(), &typeFilters[(int)value]);
+                    }
+                    ImGui::EndTable();
                 }
-                ImGui::EndTable();
+                ImGui::EndTabItem();
             }
 
-            ImGui::TreePop();
-        }
-
-        if (ImGui::TreeNode("Entity List"))
-        {
-            auto entries = magic_enum::enum_entries<app::EntityType__Enum_1>();
-            for (const auto& [currentType, typeName] : entries)
+            if (ImGui::BeginTabItem("Entity List"))
             {
-                if (!typeFilters[int(currentType)])
-                    continue;
+                // Checkbox: Group by Type.
+                ImGui::Checkbox("Group by Type", &groupByType);
+                ImGui::SameLine();
 
-                auto filteredEntities = manager.entities(game::SimpleFilter(currentType));
-                if (!showEmptyTypes && filteredEntities.size() == 0)
-                    continue;
-
-                std::vector<cheat::game::Entity*> validEntities;
-                for (const auto& entity : filteredEntities)
-                {
-                    if (entity == nullptr)
-                        continue;
-
-                    if (entity->type() != currentType)
-                        continue;
-
-                    if (checkOnlyShells && !game::filters::combined::Oculies.IsValid(entity))
-                        continue;
-
-                    if (useObjectNameFilter && entity->name().find(objectNameFilter) == -1)
-                        continue;
-                    
-                    if (useRadius)
-                    {
-                        auto dist  = manager.avatar()->distance(entity);
-                        if (dist > radius)
-                            continue;
-                    }
-
-                    validEntities.push_back(entity);
+                if (groupByType) {
+                    ImGui::Checkbox("Show Empty Types", &showEmptyTypes);
+                    ImGui::SameLine();
                 }
 
-                if (validEntities.size() == 0)
-                    continue;
+                ImGui::Checkbox("Show Only Oculi", &checkOnlyShells);
+                ImGui::SameLine();
 
-                if (ImGui::TreeNode(typeName.data()))
-                {
-                    if (ImGui::Button("Teleport: Closest"))
-                    {
-                        cheat::game::Entity *closest = nullptr;
-                        float closestDist = FLT_MAX;
-                        for (const auto &entity : validEntities)
+                bool sortConditionChanged = ComboEnum("Sort Mode", &sortCondition);
+
+                if (entities.size() > 0) {
+                    if (groupByType) {
+                        if (ImGui::BeginTabBar("EntityListTabBar", tab_bar_flags))
                         {
-                            auto dist = manager.avatar()->distance(entity);
-                            if (dist < closestDist)
-                            {
-                                closestDist = dist;
-                                closest = entity;
-                            }
-                        }
+                            for (const auto& [currentType, typeName] : sortedEntries) {
+                                if (!typeFilters[int(currentType)])
+                                    continue;
 
-                        if (closest != nullptr)
-                        {
-                            if (closestDist > 30.0f)
-                            {
-                                auto& mapTeleport = MapTeleport::GetInstance();
-                                mapTeleport.TeleportTo(closest->absolutePosition());
-                            }
-                            else
-                            {
-                                manager.avatar()->setRelativePosition(closest->relativePosition());
-                            }
-                        }
-                    }
+                                auto filteredEntities = manager.entities(game::SimpleFilter(currentType));
+                                if (!showEmptyTypes && filteredEntities.size() == 0)
+                                    continue;
 
-                    ImGui::SameLine();
-                    if (ImGui::Button("Teleport: Farthest"))
-                    {
-                        cheat::game::Entity *farthest = nullptr;
-                        float farthestDist = 0.0f;
-                        for (const auto &entity : validEntities)
-                        {
-                            auto dist = manager.avatar()->distance(entity);
-                            if (dist > farthestDist)
-                            {
-                                farthestDist = dist;
-                                farthest = entity;
-                            }
-                        }
-
-                        if (farthest != nullptr)
-                        {
-                            auto& mapTeleport = MapTeleport::GetInstance();
-                            mapTeleport.TeleportTo(farthest->absolutePosition());
-                        }
-                    }
-
-                    ImGui::SameLine();
-                    if (ImGui::Button("Summon All"))
-                    {
-                        for (const auto& entity : validEntities)
-                        {
-                            entity->setRelativePosition(manager.avatar()->relativePosition());
-                        }
-                    }
-
-                    ImGui::SameLine();
-                    if (ImGui::Button("Banish All"))
-                    {
-                        for (const auto &entity : validEntities)
-                        {
-                            entity->setRelativePosition({0, 0, 0});
-                        }
-                    }
-                    
-                    static ImGuiTableFlags flags =
-                        ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable // | ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti
-                        | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_NoBordersInBody
-                        | ImGuiTableFlags_ScrollY;
-                    if (ImGui::BeginTable("EntityTable", 5, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 15), 0.0f))
-                    {
-                        ImGui::TableSetupColumn("ID", ImGuiTableColumnFlags_WidthFixed, 0.0f, 0);
-                        ImGui::TableSetupColumn("RuntimeID", ImGuiTableColumnFlags_WidthFixed, 0.0f, 1);
-                        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 0.0f, 2);
-                        ImGui::TableSetupColumn("Distance", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_PreferSortAscending | ImGuiTableColumnFlags_WidthStretch, 0.0, 3);
-                        ImGui::TableSetupColumn("Commands", ImGuiTableColumnFlags_NoSort | ImGuiTableColumnFlags_WidthStretch, 0.0, 4);
-                        ImGui::TableSetupScrollFreeze(0, 1);
-                        ImGui::TableHeadersRow();
-
-                        if (validEntities.size() > 1) 
-                        {
-                            std::sort(validEntities.begin(), 
-                                validEntities.end(), 
-                                [](game::Entity* i1, game::Entity* i2) {
-                                    auto& manager = game::EntityManager::instance();
-                                    return manager.avatar()->distance(i1) < manager.avatar()->distance(i2);
-                                });
-                        }
-
-                        ImGuiListClipper clipper;
-                        clipper.Begin(validEntities.size());
-                        while (clipper.Step())
-                            for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++)
-                            {
-                                auto entity = validEntities[row_n];
-
-                                ImGui::PushID(entity->runtimeID());
-                                ImGui::TableNextRow();
-                                ImGui::TableNextColumn();
-
-                                ImGui::Text("0x%p", entity);
-                                ImGui::TableNextColumn();
-
-                                ImGui::Text("%u", entity->runtimeID());
-                                ImGui::TableNextColumn();
-
-                                ImGui::Text("%s", entity->name().c_str());
-                                ImGui::TableNextColumn();
-
-                                ImGui::Text("%.3fm", manager.avatar()->distance(entity));
-                                ImGui::TableNextColumn();
-
-                                if (ImGui::SmallButton("T")) 
+                                std::vector<cheat::game::Entity*> validEntities;
+                                for (const auto& entity : filteredEntities)
                                 {
-                                    auto& mapTeleport = MapTeleport::GetInstance();
-                                    mapTeleport.TeleportTo(entity->absolutePosition());
-                                };
-                                if (ImGui::IsItemHovered())
-                                    ImGui::SetTooltip("Teleport");
+                                    if (entity == nullptr)
+                                        continue;
 
-                                ImGui::SameLine();
-                                if (ImGui::SmallButton("S"))
-                                    entity->setRelativePosition(manager.avatar()->relativePosition());
-                                if (ImGui::IsItemHovered())
-                                    ImGui::SetTooltip("Summon");
+                                    if (entity->type() != currentType)
+                                        continue;
 
-                                ImGui::SameLine();
-                                if (ImGui::SmallButton("B"))
-                                    entity->setRelativePosition({ 0, 0, 0 });
-                                if (ImGui::IsItemHovered())
-                                    ImGui::SetTooltip("Banish");
+                                    if (checkOnlyShells && !game::filters::combined::Oculies.IsValid(entity))
+                                        continue;
 
-                                ImGui::SameLine();
-                                if (ImGui::SmallButton("C")) {
-                                    auto entityDetails = fmt::format("{} {} {}", fmt::ptr(entity), entity->runtimeID(), entity->name().c_str());
-                                    ImGui::SetClipboardText(entityDetails.c_str());
+                                    if (useObjectNameFilter && entity->name().find(objectNameFilter) == -1)
+                                        continue;
+
+                                    if (useRadius)
+                                    {
+                                        auto dist = manager.avatar()->distance(entity);
+                                        if (dist > radius)
+                                            continue;
+                                    }
+
+                                    validEntities.push_back(entity);
                                 }
-                                if (ImGui::IsItemHovered())
-                                    ImGui::SetTooltip("Copy Details");
 
-                                ImGui::PopID();
+                                if (validEntities.size() == 0 && !showEmptyTypes)
+                                    continue;
+
+
+                                if (ImGui::BeginTabItem(typeName.data()))
+                                {
+                                    auto sortedEntities = SortEntities(validEntities, sortCondition);
+                                    DrawEntityGroupActionButtons(sortedEntities, csvFriendly, includeHeaders);
+                                    DrawEntitiesTable(sortedEntities);
+                                    ImGui::EndTabItem();
+                                }
                             }
-                        ImGui::EndTable();
+                        }
+                        ImGui::EndTabBar();
                     }
-                    ImGui::TreePop();
+                    else {
+                        std::vector<cheat::game::Entity*> validEntities;
+                        for (const auto& entity : entities)
+                        {
+                            if (entity == nullptr)
+                                continue;
+
+                            if (!typeFilters[int(entity->type())])
+                                continue;
+
+                            if (checkOnlyShells && !game::filters::combined::Oculies.IsValid(entity))
+                                continue;
+
+                            if (useObjectNameFilter && entity->name().find(objectNameFilter) == -1)
+                                continue;
+
+                            if (useRadius)
+                            {
+                                auto dist = manager.avatar()->distance(entity);
+                                if (dist > radius)
+                                    continue;
+                            }
+
+                            validEntities.push_back(entity);
+                        }
+
+                        auto sortedEntities = SortEntities(validEntities, sortCondition);
+                        DrawEntityGroupActionButtons(sortedEntities, csvFriendly, includeHeaders);
+                        DrawEntitiesTable(sortedEntities);
+                        ImGui::TreePop();
+                    }
                 }
+                ImGui::EndTabItem();
             }
-            ImGui::TreePop();
+            ImGui::EndTabBar();
         }
     }
 
@@ -463,148 +675,6 @@ namespace cheat::feature
 #define DRAW_FLOAT(owner, fieldName) ImGui::Text("%s: %f", #fieldName, owner##->fields.##fieldName );
 #define DRAW_BOOL(owner, fieldName) ImGui::Text("%s: %s", #fieldName, owner##->fields.##fieldName ? "true" : "false");
 
-    void DrawTeleportsManager()
-    {
-        auto &entityManager = game::EntityManager::instance();
-
-        static std::string teleportName;
-        ImGui::InputText("Teleport name", &teleportName);
-        static std::vector<std::pair<std::string, app::Vector3>> teleports;
-        app::Vector3 pos = entityManager.avatar()->absolutePosition();
-        if (ImGui::Button("Add teleport"))
-        {
-            // check if already added
-            bool found = false;
-            for (const auto &[name, pos] : teleports)
-            {
-                if (name == teleportName)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            // check if name is valid and doesnt  contain special characters
-            if (!teleportName.find_first_of("\\/:*?\"<>|") == std::string::npos)
-            {
-                return;
-            }
-
-            teleports.push_back({teleportName, pos});
-
-            auto dir = std::filesystem::current_path();
-            dir /= "teleports";
-            if (!std::filesystem::exists(dir))
-                std::filesystem::create_directory(dir);
-            std::ofstream ofs(dir / (teleportName + ".json"));
-            nlohmann::json j;
-            j["name"] = teleportName;
-            j["position"] = {pos.x, pos.y, pos.z};
-            ofs << j;
-            teleportName.clear();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Reload"))
-        {
-            auto dir = std::filesystem::current_path();
-            dir /= "teleports";
-            auto result = std::filesystem::directory_iterator(dir);
-            teleports.clear();
-            for (auto &file : result)
-            {
-
-                if (file.path().extension() != ".json")
-                    continue;
-
-                std::string name = file.path().stem().string();
-                if (file.is_directory())
-                    continue;
-
-                std::ifstream ifs(file.path());
-                nlohmann::json j;
-                ifs >> j;
-                teleports.push_back({j["name"], {j["position"][0], j["position"][1], j["position"][2]}});
-                LOG_INFO("Loaded teleport %s", name.c_str());
-            }
-        }
-        ImGui::SameLine();
-        // open directory
-        if (ImGui::Button("Open Folder"))
-        {
-            auto dir = std::filesystem::current_path();
-            dir /= "teleports";
-            ShellExecuteA(NULL, "open", dir.string().c_str(), NULL, NULL, SW_SHOW);
-        }
-
-        static std::string jsonInput;
-        ImGui::InputTextMultiline("JSON input", &jsonInput, ImVec2(0, 50), ImGuiInputTextFlags_AllowTabInput);
-
-        if (ImGui::Button("Load from JSON"))
-        {
-            auto dir = std::filesystem::current_path();
-            dir /= "teleports";
-            LOG_INFO("Defined dir");
-            if (!std::filesystem::exists(dir))
-                std::filesystem::create_directory(dir);
-            nlohmann::json j;
-            try
-            {
-                j = nlohmann::json::parse(jsonInput);
-            }
-            catch (nlohmann::json::parse_error &e)
-            {
-                LOG_ERROR("Failed to parse JSON: %s", e.what());
-                return;
-            }
-            LOG_INFO("Parsed JSON");
-            std::string teleportName = j["name"];
-            app::Vector3 pos = { j["position"][0], j["position"][1], j["position"][2] };
-            teleports.push_back({ teleportName, pos });
-            LOG_INFO("Loaded teleport %s", teleportName.c_str());
-            std::ofstream ofs(dir / (teleportName + ".json"));
-            ofs << jsonInput;
-            jsonInput.clear();
-
-        }
-
-        if (ImGui::TreeNode("Teleports"))
-        {
-            std::string search;
-            ImGui::InputText("Search", &search);
-            for (const auto &[teleportName, position] : teleports)
-            {
-                // find without case sensitivity
-                if (search.empty() || std::search(teleportName.begin(), teleportName.end(), search.begin(), search.end(), [](char a, char b)
-                                                  { return std::tolower(a) == std::tolower(b); }) != teleportName.end())
-                {
-                    if (ImGui::TreeNode(teleportName.data()))
-                    {
-                        ImGui::Text("Position: %.3f, %.3f, %.3f", position.x, position.y, position.z);
-                        if (ImGui::Button("Teleport"))
-                        {
-                            auto &mapTeleport = MapTeleport::GetInstance();
-                            mapTeleport.TeleportTo(position);
-                        }
-                        ImGui::SameLine();
-                        if (ImGui::Button("Remove"))
-                        {
-                            auto dir = std::filesystem::current_path();
-                            dir /= "teleports";
-                            // delete file
-                            std::filesystem::remove(dir / (teleportName + ".json"));
-                            auto it = std::find_if(teleports.begin(), teleports.end(), [&teleportName](const auto &pair)
-                                                   { return pair.first == teleportName; });
-                            if (it != teleports.end())
-                                teleports.erase(it);
-                        }
-                        ImGui::SameLine();
-                        HelpMarker("Warning: Removing a teleport will remove the file from the directory. It will be lost forever.");
-                        ImGui::TreePop();
-                    }
-                }
-            }
-            ImGui::TreePop();
-        }
-    }
     static void DrawBaseInteraction(app::BaseInterAction* inter)
     {
         ImGui::Text("_type: %s", magic_enum::enum_name(inter->fields._type).data());
@@ -1077,10 +1147,10 @@ namespace cheat::feature
             if (!unexplored)
                 continue;
 
-            bool isSelected = esp::render::DrawEntity(entity->name(), entity, ImColor(255, 0, 0, 255));
+            bool isSelected = esp::render::DrawEntity(entity->name(), entity, ImColor(255, 0, 0, 255), ImColor(255, 0, 0, 255));
             if (isSelected && selectedEntity == nullptr)
             {
-                esp::render::DrawEntity(entity->name(), entity, ImColor(0, 255, 0, 255));
+                esp::render::DrawEntity(entity->name(), entity, ImColor(0, 255, 0, 255), ImColor(255, 0, 255, 255));
                 selectedEntity = entity;
             }
         }
@@ -1162,7 +1232,7 @@ namespace cheat::feature
 
     void Debug::DrawMain()
 	{
-		if (ImGui::CollapsingHeader("Entity manager", ImGuiTreeNodeFlags_None))
+		if (ImGui::CollapsingHeader("Entity Manager", ImGuiTreeNodeFlags_None))
 			DrawEntitiesData();
 
 		if (ImGui::CollapsingHeader("Position", ImGuiTreeNodeFlags_None))
@@ -1180,12 +1250,10 @@ namespace cheat::feature
 		//if (ImGui::CollapsingHeader("Interaction manager", ImGuiTreeNodeFlags_None))
 		//	DrawInteractionManagerInfo();
 
-		if (ImGui::CollapsingHeader("Map manager", ImGuiTreeNodeFlags_None))
+		if (ImGui::CollapsingHeader("Map Manager", ImGuiTreeNodeFlags_None))
 			DrawManagerData();
         if (ImGui::CollapsingHeader("FPS Graph", ImGuiTreeNodeFlags_None))
             DrawFPSGraph();
-        if (ImGui::CollapsingHeader("Custom Teleports", ImGuiTreeNodeFlags_None))
-            DrawTeleportsManager();
 	}
 
 	bool Debug::NeedInfoDraw() const

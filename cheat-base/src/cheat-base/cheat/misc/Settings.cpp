@@ -2,26 +2,37 @@
 #include "Settings.h"
 
 #include <cheat-base/render/gui-util.h>
+#include <cheat-base/render/renderer.h>
+#include <cheat-base/cheat/CheatManagerBase.h>
 
 namespace cheat::feature 
 {
     Settings::Settings() : Feature(),
-        NF(m_MenuKey,    "Show Cheat Menu Key", "General", Hotkey(VK_F1)),
-		
-		NF(m_StatusMove, "Move Status Window", "General", true),
-		NF(m_StatusShow, "Show Status Window", "General", true),
-		
-		NF(m_InfoMove,   "Move Info Window", "General", true),
-		NF(m_InfoShow,   "Show Info Window", "General", true),
-		
-		NF(m_FpsMove, "Move FPS Indicator", "General", false),
-		NF(m_FpsShow, "Show FPS Indicator", "General", true),
+		NF(f_MenuKey, "Show Cheat Menu Key", "General", Hotkey(VK_F1)),
+		NF(f_HotkeysEnabled, "Hotkeys Enabled", "General", true),
+		NF(f_FontSize, "Font size", "General", 16.0f),
 
-		NF(m_ConsoleLogging, "Console Logging", "General", true),
-		NF(m_FileLogging,    "File Logging",    "General", false),
-		NF(m_HotkeysEnabled, "Hotkeys Enabled", "General", true)
+		NF(f_StatusMove, "Move Status Window", "General::StatusWindow", true),
+		NF(f_StatusShow, "Show Status Window", "General::StatusWindow", true),
+		
+		NF(f_InfoMove,   "Move Info Window", "General::InfoWindow", true),
+		NF(f_InfoShow,   "Show Info Window", "General::InfoWindow", true),
+		
+		NF(f_FpsMove, "Move FPS Indicator", "General::FPS", false),
+		NF(f_FpsShow, "Show FPS Indicator", "General::FPS", true),
+
+		NF(f_NotificationsShow, "Show Notifications", "General::Notify", true), 
+		NF(f_NotificationsDelay, "Notifications Delay", "General::Notify", 500),
+  
+		NF(f_FileLogging,    "File Logging",    "General::Logging", false),
+		NF(f_ConsoleLogging, "Console Logging", "General::Logging", true),
+
+		NF(f_FastExitEnable, "Fast Exit", "General::FastExit", false),
+		NF(f_HotkeyExit, "Hotkeys", "General::FastExit", Hotkey(VK_F12))
+		
     {
-
+		renderer::SetGlobalFontSize(f_FontSize);
+		f_HotkeyExit.value().PressedEvent += MY_METHOD_HANDLER(Settings::OnExitKeyPressed);
     }
 
     const FeatureGUIInfo& Settings::GetGUIInfo() const
@@ -35,26 +46,31 @@ namespace cheat::feature
 
 		BeginGroupPanel("General", ImVec2(-1, 0));
 		{
-			ConfigWidget(m_MenuKey, false,
+			ConfigWidget(f_MenuKey, false,
 				"Key to toggle main menu visibility. Cannot be empty.\n"\
 				"If you forget this key, you can see or set it in your config file.");
-			ConfigWidget(m_HotkeysEnabled, "Enable hotkeys.");
+			ConfigWidget(f_HotkeysEnabled, "Enable hotkeys.");
+			if (ConfigWidget(f_FontSize, 1, 8, 64, "Font size for cheat interface."))
+			{
+				f_FontSize = std::clamp(f_FontSize.value(), 8, 64);
+				renderer::SetGlobalFontSize(f_FontSize);
+			}
 		}
 		EndGroupPanel();
 
 		BeginGroupPanel("Logging", ImVec2(-1, 0));
 		{
-			bool consoleChanged = ConfigWidget(m_ConsoleLogging,
+			bool consoleChanged = ConfigWidget(f_ConsoleLogging,
 				"Enable console for logging information (changes will take effect after relaunch)");
-			if (consoleChanged && !m_ConsoleLogging)
+			if (consoleChanged && !f_ConsoleLogging)
 			{
 				Logger::SetLevel(Logger::Level::None, Logger::LoggerType::ConsoleLogger);
 			}
 
-			bool fileLogging = ConfigWidget(m_FileLogging,
+			bool fileLogging = ConfigWidget(f_FileLogging,
 				"Enable file logging (changes will take effect after relaunch).\n" \
 				"A folder in the app directory will be created for logs.");
-			if (fileLogging && !m_FileLogging)
+			if (fileLogging && !f_FileLogging)
 			{
 				Logger::SetLevel(Logger::Level::None, Logger::LoggerType::FileLogger);
 			}
@@ -63,22 +79,46 @@ namespace cheat::feature
 
 		BeginGroupPanel("Status Window", ImVec2(-1, 0));
 		{
-			ConfigWidget(m_StatusShow);
-			ConfigWidget(m_StatusMove, "Allow moving of 'Status' window.");
+			ConfigWidget(f_StatusShow);
+			ConfigWidget(f_StatusMove, "Allow moving of 'Status' window.");
 		}
 		EndGroupPanel();
 
 		BeginGroupPanel("Info Window", ImVec2(-1, 0));
 		{
-			ConfigWidget(m_InfoShow);
-			ConfigWidget(m_InfoMove, "Allow moving of 'Info' window.");
+			ConfigWidget(f_InfoShow);
+			ConfigWidget(f_InfoMove, "Allow moving of 'Info' window.");
 		}
 		EndGroupPanel();
 
 		BeginGroupPanel("FPS indicator", ImVec2(-1, 0));
 		{
-			ConfigWidget(m_FpsShow);
-			ConfigWidget(m_FpsMove, "Allow moving of 'FPS Indicator' window.");
+			ConfigWidget(f_FpsShow);
+			ConfigWidget(f_FpsMove, "Allow moving of 'FPS Indicator' window.");
+		}
+		EndGroupPanel();
+
+		BeginGroupPanel("Show Notifications", ImVec2(-1, 0));
+		{
+			ConfigWidget(f_NotificationsShow, "Notifications on the bottom-right corner of the window will be displayed.");
+			ConfigWidget(f_NotificationsDelay, 1,1,10000, "Delay in milliseconds between notifications.");
+		}
+		EndGroupPanel();
+
+		BeginGroupPanel("Fast Exit", ImVec2(-1, 0));
+		{
+			ConfigWidget("Enabled",
+				f_FastExitEnable,
+				"Enable Fast Exit.\n" 
+			);
+			if (!f_FastExitEnable)
+				ImGui::BeginDisabled();
+
+			ConfigWidget("Key", f_HotkeyExit, true,
+				"Key to exit the game.");
+
+			if (!f_FastExitEnable)
+				ImGui::EndDisabled();
 		}
 		EndGroupPanel();
 	}
@@ -88,5 +128,13 @@ namespace cheat::feature
         static Settings instance;
         return instance;
     }
+
+	void Settings::OnExitKeyPressed()
+	{
+		if (!f_FastExitEnable || CheatManagerBase::IsMenuShowed())
+			return;
+
+		ExitProcess(0);
+	}
 }
 

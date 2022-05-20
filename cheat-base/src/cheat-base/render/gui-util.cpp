@@ -52,189 +52,164 @@ bool InputHotkey(const char* label, Hotkey* hotkey, bool clearable)
     return changed;
 }
 
-bool InputPath(const char* label, std::filesystem::path* buffer, bool folder, const char* filter)
-{
-    bool changed = false;
-    ImGui::PushID(label);
-    if (ImGui::Button("Browse"))
-    {
-        auto value = folder ? util::SelectDirectory(label) : util::SelectFile(filter, label);
-        if (value)
-        {
-            *buffer = *value;
-            changed = true;
-        }
-    }
-    ImGui::SameLine();
-    changed |= ImGui::InputText(label, (char*)buffer->c_str(), buffer->string().capacity());
-
-    ImGui::PopID();
-    return changed;
-}
-
-
-#define ShowDesc(msg) if (desc != nullptr) { ImGui::SameLine(); HelpMarker(msg); }
-
-struct ActiveInfo 
-{
-    void* valuePtr;
-    bool changed;
-};
-
-static ActiveInfo prev;
-static ActiveInfo current;
-
-bool IsValueChanged(void* valuePtr, bool result) 
-{
-    if (ImGui::IsItemActivated()) {
-        prev = current;
-        current = { valuePtr, result };
-        return false;
-    }
-
-    if (ImGui::IsItemActive()) {
-        current.changed |= result;
-        return false;
-    }
-
-    if (ImGui::IsItemDeactivated()) {
-        auto item = (current.valuePtr == valuePtr) ? current : prev;
-        return item.changed;
-    }
-
-    return result;
-}
-
-
 float CalcWidth(const std::string_view& view)
 {
 	ImGuiContext& g = *GImGui;
 	return ImGui::CalcTextSize(view.data()).x + g.Style.FramePadding.x * 2.0f + 25.0f;
 }
 
-bool ConfigWidget(const char* label, config::field::BaseField<bool>& field, const char* desc)
-{
-    bool result = ImGui::Checkbox(label, field.valuePtr());
 
-    if (result)
-        field.Check();
-
-    ShowDesc(desc);
-    
+#define END_TYPE_WIDGET() \
+    if (desc != nullptr) { ImGui::SameLine(); HelpMarker(desc); } \
     return result;
+
+#define END_CONFIG_WIDGET() if (result) field.FireChanged(); return result;
+
+bool TypeWidget(const char* label, bool& value, const char* desc)
+{
+    bool result = ImGui::Checkbox(label, &value);
+    END_TYPE_WIDGET();
 }
 
-bool ConfigWidget(const char* label, config::field::BaseField<int>& field, int step, int start, int end, const char* desc)
+bool TypeWidget(const char* label, int& value, int step, int start, int end, const char* desc)
 {
     bool result = false;
 
     if (start == end)
-        result = ImGui::InputInt(label, field.valuePtr(), step);
+        result = ImGui::InputInt(label, &value, step);
     else
-        result = ImGui::DragInt(label, field.valuePtr(), (float)step, start, end);
+        result = ImGui::DragInt(label, &value, (float)step, start, end);
 
-    if (IsValueChanged(field.valuePtr(), result))
-        field.Check();
-
-    ShowDesc(desc);
-
-    return result;
+    END_TYPE_WIDGET();
 }
 
-bool ConfigWidget(const char* label, config::field::BaseField<float>& field, float step, float start, float end, const char* desc)
+bool TypeWidget(const char* label, float& value, float step, float start, float end, const char* desc)
 {
     bool result = false;
 
     if (start == end)
-        result = ImGui::InputFloat(label, field.valuePtr(), step);
+        result = ImGui::InputFloat(label, &value, step);
     else
-        result = ImGui::DragFloat(label, field.valuePtr(), step, start, end);
+        result = ImGui::DragFloat(label, &value, step, start, end);
 
-    if (IsValueChanged(field.valuePtr(), result))
-        field.Check();
-
-    ShowDesc(desc);
-
-    return result;
+    END_TYPE_WIDGET();
 }
 
-bool ConfigWidget(const char* label, config::field::HotkeyField& field, bool clearable, const char* desc)
+bool TypeWidget(const char* label, Hotkey& value, bool clearable, const char* desc)
 {
-    bool result = InputHotkey(label, field.valuePtr(), clearable);
-    if (IsValueChanged(field.valuePtr(), result))
-        field.Check();
-
-    ShowDesc(desc);
-
-    return result;
+    bool result = InputHotkey(label, &value, clearable);
+    END_TYPE_WIDGET();
 }
 
-bool ConfigWidget(const char* label, config::field::BaseField<std::string>& field, const char* desc)
+bool TypeWidget(const char* label, std::string& value, const char* desc)
 {
-    bool result = ImGui::InputText(label, field.valuePtr());
-    if (IsValueChanged(field.valuePtr(), result))
-        field.Check();
-
-    ShowDesc(desc);
-
-    return result;
+    bool result = ImGui::InputText(label, &value);
+    END_TYPE_WIDGET();
 }
 
-bool ConfigWidget(const char* label, config::field::BaseField<std::filesystem::path>& field, bool onlyDirectories, const char* filter, const char* desc)
+bool TypeWidget(const char* label, ImColor& value, const char* desc)
 {
-    bool result = InputPath(label, field);
-    if (IsValueChanged(field.valuePtr(), result))
-        field.Check();
-
-    ShowDesc(desc);
-
-    return result;
+    bool result = ImGui::ColorEdit4(label, reinterpret_cast<float*>(&value));
+    END_TYPE_WIDGET();
 }
 
-bool ConfigWidget(const char* label, config::field::ColorField& field, const char* desc /*= nullptr*/)
+bool TypeWidget(const char* label, config::Toggle<Hotkey>& value, const char* desc, bool hotkey)
 {
-    bool result = ImGui::ColorEdit4(label, reinterpret_cast<float*>(field.valuePtr()));
-    if (IsValueChanged(field.valuePtr(), result))
-        field.Check();
-
-    ShowDesc(desc);
-
-    return result;
+    bool result = hotkey ? InputHotkey(label, &value.value, true) : ImGui::Checkbox(label, &value.enabled);
+    END_TYPE_WIDGET();
 }
 
-bool ConfigWidget(config::field::BaseField<bool>& field, const char* desc)
+bool ConfigWidget(const char* label, config::Field<bool>& field, const char* desc)
 {
-    return ConfigWidget(field.GetFriendlyName().c_str(), field, desc);
+    bool result = TypeWidget(label, field.value(), desc);
+    END_CONFIG_WIDGET();
 }
 
-bool ConfigWidget(config::field::BaseField<int>& field, int step, int start, int end, const char* desc)
+bool ConfigWidget(const char* label, config::Field<int>& field, int step, int start, int end, const char* desc)
 {
-    return ConfigWidget(field.GetFriendlyName().c_str(), field, step, start, end, desc);
+    bool result = TypeWidget(label, field.value(), step, start, end, desc);
+    END_CONFIG_WIDGET();
 }
 
-bool ConfigWidget(config::field::BaseField<float>& field, float step, float start, float end, const char* desc)
+bool ConfigWidget(const char* label, config::Field<float>& field, float step, float start, float end, const char* desc)
 {
-    return ConfigWidget(field.GetFriendlyName().c_str(), field, step, start, end, desc);
+    bool result = TypeWidget(label, field.value(), step, start, end, desc);
+    END_CONFIG_WIDGET();
 }
 
-bool ConfigWidget(config::field::HotkeyField& field, bool clearable, const char* desc)
+bool ConfigWidget(const char* label, config::Field<Hotkey>& field, bool clearable, const char* desc)
 {
-    return ConfigWidget(field.GetFriendlyName().c_str(), field, clearable, desc);
+    bool result = TypeWidget(label, field.value(), clearable, desc);
+    END_CONFIG_WIDGET();
 }
 
-bool ConfigWidget(config::field::BaseField<std::string>& field, const char* desc)
+bool ConfigWidget(const char* label, config::Field<std::string>& field, const char* desc)
 {
-    return ConfigWidget(field.GetFriendlyName().c_str(), field, desc);
+    bool result = TypeWidget(label, field.value(), desc);
+    END_CONFIG_WIDGET();
 }
 
-bool ConfigWidget(config::field::BaseField<std::filesystem::path>& field, bool folder, const char* filter, const char* desc)
+bool ConfigWidget(const char* label, config::Field<ImColor>& field, const char* desc /*= nullptr*/)
 {
-    return ConfigWidget(field.GetFriendlyName().c_str(), field, folder, filter, desc);
+    bool result = TypeWidget(label, field.value(), desc);
+    END_CONFIG_WIDGET();
 }
 
-bool ConfigWidget(config::field::ColorField& field, const char* desc /*= nullptr*/)
+bool ConfigWidget(const char* label, config::Field<config::Toggle<float>>& field, float step, float start, float end,
+	const char* desc, bool hotkey)
 {
-    return ConfigWidget(field.GetFriendlyName().c_str(), field, desc);
+    ImGui::PushID(&label);
+    bool result = TypeWidget("", field.value().enabled);
+    ImGui::SameLine();
+    result |= TypeWidget(label, field.value().value, step, start, end, desc);
+    ImGui::PopID();
+    END_CONFIG_WIDGET();
+}
+
+bool ConfigWidget(const char* label, config::Field<config::Toggle<Hotkey>>& field, const char* desc /*= nullptr*/, bool hotkey /*= false*/)
+{
+    bool result = TypeWidget(label, field.value(), desc, hotkey);
+    END_CONFIG_WIDGET();
+}
+
+bool ConfigWidget(config::Field<bool>& field, const char* desc)
+{
+    return ConfigWidget(field.friendName().c_str(), field, desc);
+}
+
+bool ConfigWidget(config::Field<int>& field, int step, int start, int end, const char* desc)
+{
+    return ConfigWidget(field.friendName().c_str(), field, step, start, end, desc);
+}
+
+bool ConfigWidget(config::Field<float>& field, float step, float start, float end, const char* desc)
+{
+    return ConfigWidget(field.friendName().c_str(), field, step, start, end, desc);
+}
+
+bool ConfigWidget(config::Field<Hotkey>& field, bool clearable, const char* desc)
+{
+    return ConfigWidget(field.friendName().c_str(), field, clearable, desc);
+}
+
+bool ConfigWidget(config::Field<std::string>& field, const char* desc)
+{
+    return ConfigWidget(field.friendName().c_str(), field, desc);
+}
+
+bool ConfigWidget(config::Field<ImColor>& field, const char* desc /*= nullptr*/)
+{
+    return ConfigWidget(field.friendName().c_str(), field, desc);
+}
+
+bool ConfigWidget(config::Field<config::Toggle<float>>& field, float step, float start, float end, const char* desc)
+{
+    return ConfigWidget(field.friendName().c_str(), field, step, start, end, desc);
+}
+
+bool ConfigWidget(config::Field<config::Toggle<Hotkey>>& field, const char* desc /*= nullptr*/, bool hotkey /*= false*/)
+{
+    return ConfigWidget(field.friendName().c_str(), field, desc, hotkey);
 }
 
 #undef ShowDesc
@@ -350,6 +325,7 @@ bool BeginGroupPanel(const char* name, const ImVec2& size, bool node, SelectData
         if (!isOpen)
         {
             ImGui::PopStyleVar(2);
+            ImGui::EndGroup();
             ImGui::EndGroup();
             ImGui::EndGroup();
             ImGui::PopID();
@@ -519,6 +495,47 @@ void TextURL(const char* name_, const char* URL_, bool SameLineBefore_, bool Sam
 	if (SameLineAfter_) { ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x); }
 }
 
+bool operator&(OutlineSide lhs, OutlineSide rhs) {
+    return
+        static_cast<std::underlying_type<OutlineSide>::type>(lhs) &
+        static_cast<std::underlying_type<OutlineSide>::type>(rhs);
+}
+
+void DrawTextWithOutline(ImDrawList* drawList, ImFont* font, float fontSize, const ImVec2& screenPos,
+    const char* text, const ImColor& textColor, float outlineThickness, OutlineSide sides, const ImColor& outlineColor)
+{
+    if (outlineThickness == 0.0f)
+    {
+        drawList->AddText(font, fontSize, screenPos, outlineColor, text);
+    }
+    else
+    {
+        if (sides & OutlineSide::Left)
+            drawList->AddText(font, fontSize,
+                { screenPos.x - outlineThickness, screenPos.y }, outlineColor, text);
+
+        if (sides & OutlineSide::Right)
+            drawList->AddText(font, fontSize,
+                { screenPos.x + outlineThickness, screenPos.y }, outlineColor, text);
+
+        if (sides & OutlineSide::Bottom)
+            drawList->AddText(font, fontSize,
+                { screenPos.x, screenPos.y - outlineThickness }, outlineColor, text);
+
+        if (sides & OutlineSide::Top)
+            drawList->AddText(font, fontSize,
+                { screenPos.x, screenPos.y + outlineThickness }, outlineColor, text);
+    }
+
+    drawList->AddText(font, fontSize, screenPos, textColor, text);
+}
+
+void DrawTextWithOutline(ImDrawList* drawList, const ImVec2& screenPos, const char* text, const ImColor& textColor,
+    float outlineThickness, OutlineSide sides, const ImColor& outlineColor)
+{
+    DrawTextWithOutline(drawList, nullptr, 0.0f, screenPos, text, textColor, outlineThickness, sides, outlineColor);
+}
+
 // Modified version of: https://github.com/spirthack/CSGOSimple/blob/master/CSGOSimple/UI.cpp#L287 
 bool ImGui::HotkeyWidget(const char* label, Hotkey& hotkey, const ImVec2& size)
 {
@@ -621,7 +638,7 @@ bool ImGui::HotkeyWidget(const char* label, Hotkey& hotkey, const ImVec2& size)
 	ImGui::RenderFrame(frame_bb.Min, frame_bb.Max, frame_col, true, style.FrameRounding);
 
 	if ((g.ActiveId == id && !_currHotkey.IsEmpty()) || g.ActiveId != id)
-		strcpy_s(buf_display, ((std::string)hotkey).c_str());
+		strcpy_s(buf_display, static_cast<std::string>(hotkey).c_str());
 	else if (g.ActiveId == id) 
 		strcpy_s(buf_display, "<Press a key>");
 
@@ -637,7 +654,7 @@ bool ImGui::HotkeyWidget(const char* label, Hotkey& hotkey, const ImVec2& size)
 }
 
 // https://github.com/ocornut/imgui/issues/3798
-float CalcContrastRatio(const ImU32& backgroundColor, const ImU32& foreGroundColor)
+float ImGui::CalcContrastRatio(const ImU32& backgroundColor, const ImU32& foreGroundColor)
 {
     // real code https://www.w3.org/TR/WCAG20/#relativeluminancedef
     /*const auto colBG = ImGui::ColorConvertU32ToFloat4(backgroundColor);
@@ -663,6 +680,11 @@ float CalcContrastRatio(const ImU32& backgroundColor, const ImU32& foreGroundCol
     return contrastRatio;
 }
 
+ImColor ImGui::CalcContrastColor(const ImColor& foreground, float maxContrastRatio, const ImColor& background, const ImColor& inverted)
+{
+    return ImGui::CalcContrastRatio(background, foreground) < maxContrastRatio ? inverted : background;
+}
+
 bool ImGui::PushStyleColorWithContrast(ImU32 backGroundColor, ImGuiCol foreGroundColor, ImU32 invertedColor, float maxContrastRatio)
 {
 	const float contrastRatio = CalcContrastRatio(backGroundColor, GetColorU32(foreGroundColor));
@@ -672,4 +694,47 @@ bool ImGui::PushStyleColorWithContrast(ImU32 backGroundColor, ImGuiCol foreGroun
 		return true;
 	}
 	return false;
+}
+
+static std::string nameBuffer;
+void ImGui::OpenRenamePopup(const std::string& initName)
+{
+    ImGui::OpenPopup("RenamePopup");
+    if (IsRenamePopupOpened())
+        nameBuffer = initName;
+}
+
+bool ImGui::IsRenamePopupOpened()
+{
+    return ImGui::IsPopupOpen("RenamePopup");
+}
+
+bool ImGui::DrawRenamePopup(std::string& out)
+{
+    if (ImGui::BeginPopup("RenamePopup", ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("To save press `Enter`.\nTo close without saving press `Esc`.");
+
+        if (!ImGui::IsAnyItemActive() && !ImGui::IsMouseClicked(0))
+            ImGui::SetKeyboardFocusHere(0);
+
+        ImGui::InputText("Name", &nameBuffer);
+
+        bool changed = false;
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter, false))
+        {
+            changed = true;
+            out = nameBuffer;
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+        {
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+        return changed;
+    }
+    return false;
 }

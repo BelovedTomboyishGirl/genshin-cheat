@@ -3,25 +3,25 @@
 
 #include <helpers.h>
 #include <cheat/teleport/MapTeleport.h>
-#include <cheat-base/cheat/CheatManager.h>
+#include <cheat-base/cheat/CheatManagerBase.h>
 #include <cheat/game/EntityManager.h>
 #include <cheat/game/util.h>
-#include <cheat/events.h>
+#include <cheat/GenshinCM.h>
 
 namespace cheat::feature 
 {
     ItemTeleportBase::ItemTeleportBase(const std::string& section, const std::string& name) : Feature(),
-		NF(m_Key, "Teleport to Nearest", section, Hotkey()),
-		NF(m_ShowInfo, "Show Info", section, true),
+		NF(f_Key, "Teleport to Nearest", section, Hotkey()),
+		NF(f_ShowInfo, "Show Info", section, true),
         section(section), name(name)
     {
-		events::KeyUpEvent += MY_METHOD_HANDLER(ItemTeleportBase::OnKeyUp);
+		f_Key.value().PressedEvent += MY_METHOD_HANDLER(ItemTeleportBase::OnTeleportKeyPressed);
     }
 
     void ItemTeleportBase::DrawMain()
     {
 		auto desc = util::string_format("When key pressed, will teleport to nearest %s if exists.", name.c_str());
-		ConfigWidget(m_Key, desc.c_str());
+		ConfigWidget(f_Key, desc.c_str());
 
 		DrawFilterOptions();
 
@@ -40,7 +40,7 @@ namespace cheat::feature
 
 	bool ItemTeleportBase::NeedInfoDraw() const
 {
-		return m_ShowInfo;
+		return f_ShowInfo;
 	}
 
 	void ItemTeleportBase::DrawInfo()
@@ -48,19 +48,16 @@ namespace cheat::feature
 		DrawNearestEntityInfo();
 	}
 
-	void ItemTeleportBase::OnKeyUp(short key, bool& cancelled)
+	void ItemTeleportBase::OnTeleportKeyPressed()
 	{
-		if (CheatManager::IsMenuShowed())
+		if (GenshinCM::IsMenuShowed())
 			return;
 
-		if (m_Key.value().IsPressed(key))
+		auto entity = game::FindNearestEntity(*this);
+		if (entity != nullptr)
 		{
-			auto entity = game::FindNearestEntity(*this);
-			if (entity != nullptr)
-			{
-				MapTeleport& mapTeleport = MapTeleport::GetInstance();
-				mapTeleport.TeleportTo(entity->absolutePosition());
-			}
+			MapTeleport& mapTeleport = MapTeleport::GetInstance();
+			mapTeleport.TeleportTo(entity->absolutePosition());
 		}
 	}
 

@@ -8,76 +8,98 @@
 #include <cheat/game/filters.h>
 #include <cheat/events.h>
 #include <cheat/game/CacheFilterExecutor.h>
+#include <cheat/GenshinCM.h>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "imgui_internal.h"
 #include <misc/cpp/imgui_stdlib.h>
 
+#include "cheat-base/cheat/CheatManagerBase.h"
+
 namespace cheat::feature
 {
 
-#define UPDATE_DELAY(delay) \
-							static ULONGLONG s_LastUpdate = 0;       \
-                            ULONGLONG currentTime = GetTickCount64();\
-                            if (s_LastUpdate + delay > currentTime)  \
-                                return;                              \
-							s_LastUpdate = currentTime;
-
-#define UPDATE_DELAY_VAR(type, name, delay) \
-							static type name = {};                   \
-							static ULONGLONG s_LastUpdate = 0;       \
-                            ULONGLONG currentTime = GetTickCount64();\
-                            if (s_LastUpdate + delay > currentTime)  \
-                                return name;                         \
-                            s_LastUpdate = currentTime;
-
 	InteractiveMap::InteractiveMap() : Feature(),
-		NFF(m_Enabled, "Interactive map", "m_InteractiveMap", "InteractiveMap", false),
-		NF(m_SeparatedWindows, "Separated windows", "InteractiveMap", true),
-		NF(m_CompletionLogShow, "Completion log show", "InteractiveMap", false),
+		NFEX(f_Enabled, "Interactive map", "m_InteractiveMap", "InteractiveMap", false, false),
+		NF(f_SeparatedWindows, "Separated windows", "InteractiveMap", true),
+		NF(f_CompletionLogShow, "Completion log show", "InteractiveMap", false),
 
-		NF(m_IconSize, "Icon size", "InteractiveMap", 20.0f),
-		NF(m_MinimapIconSize, "Minimap icon size", "InteractiveMap", 14.0f),
-		NF(m_DynamicSize, "Dynamic size", "InteractiveMap", false),
-		NF(m_ShowHDIcons, "Show HD icons", "InteractiveMap", false),
+		NFS(f_STFixedPoints, "Fixed points", "InteractiveMap", SaveAttachType::Global),
+		NFS(f_STCustomPoints, "Custom points", "InteractiveMap", SaveAttachType::Global),
+		NFS(f_STCompletedPoints, "Save completed points", "InteractiveMap", SaveAttachType::Account),
 
-		NF(m_ShowCompleted, "Show completed", "InteractiveMap", false),
-		NF(m_CompletePointTransparency, "Completed point transparency", "InteractiveMap", 0.5f),
+		NF(f_IconSize, "Icon size", "InteractiveMap", 20.0f),
+		NF(f_MinimapIconSize, "Minimap icon size", "InteractiveMap", 14.0f),
+		NF(f_DynamicSize, "Dynamic size", "InteractiveMap", false),
+		NF(f_ShowHDIcons, "Show HD icons", "InteractiveMap", false),
 
-		NF(m_AutoDetectNewItems, "Detect new items", "InteractiveMap", true),
-		NF(m_NewItemstDetectOnlyShowed, "Detect only showed", "InteractMap", true),
-		NF(m_NewItemsDetectRange, "Detect range", "InteractiveMap", 20.0f),
-		NF(m_NewItemsDetectingDelay, "Detect delay (ms)", "InteractiveMap", 2000),
+		NF(f_ShowCompleted, "Show completed", "InteractiveMap", false),
+		NF(f_CompletePointTransparency, "Completed point transparency", "InteractiveMap", 0.5f),
 
-		NF(m_AutoDetectGatheredItems, "Detect gathered items", "InteractiveMap", true),
-		NF(m_GatheredItemsDetectRange, "Detect range", "InteractiveMap", 20.0f),
+		NF(f_AutoDetectNewItems, "Detect new items", "InteractiveMap", true),
+		NF(f_AutoFixItemPositions, "Fix item positions", "InteractiveMap", true),
+		NF(f_ObjectCheckOnlyShowed, "Detect only showed", "InteractMap", true),
+		NF(f_ObjectDetectRange, "Detect range", "InteractiveMap", 20.0f),
+		NF(f_CheckObjectsDelay, "Detect delay (ms)", "InteractiveMap", 2000),
 
-		NF(m_CompleteNearestPoint, "Complete nearest point", "InteractiveMap", Hotkey()),
-		NF(m_RevertLatestCompletion, "Revert latest completion", "InteractiveMap", Hotkey()),
-		NF(m_CompleteOnlyViewed, "Complete only showed", "InteractiveMap", true),
-		NF(m_PointFindRange, "Point finding range", "InteractiveMap", 30.0f),
+		NF(f_AutoDetectGatheredItems, "Detect gathered items", "InteractiveMap", true),
+		NF(f_GatheredItemsDetectRange, "Detect range", "InteractiveMap", 20.0f),
 
-		NF(m_UserPointsData, "User points data", "InteractiveMap", "{}"),
-		NF(m_CustomPointIndex, "Custom point index", "InteractiveMap", 1000000)
+		NF(f_CompleteNearestPoint, "Complete nearest point", "InteractiveMap", Hotkey()),
+		NF(f_RevertLatestCompletion, "Revert latest completion", "InteractiveMap", Hotkey()),
+		NF(f_CompleteOnlyViewed, "Complete only showed", "InteractiveMap", true),
+		NF(f_PointFindRange, "Point finding range", "InteractiveMap", 30.0f),
+
+		NFS(f_CustomPointIndex, "Custom point index", "InteractiveMap", 1000000),
+		NFS(f_LastUserID, "Last user id", "InteractiveMap", 0),
+
+		m_HoveredPoint(nullptr)
 	{
-		// Eventing
-		cheat::events::GameUpdateEvent += MY_METHOD_HANDLER(InteractiveMap::OnGameUpdate);
-		cheat::events::WndProcEvent    += MY_METHOD_HANDLER(InteractiveMap::OnWndProc);
-		cheat::events::KeyUpEvent      += MY_METHOD_HANDLER(InteractiveMap::OnKeyUp);
-
-		// Hooking
-		HookManager::install(app::MonoMiniMap_Update,                  InteractiveMap::MonoMiniMap_Update_Hook);
-		HookManager::install(app::GadgetModule_OnGadgetInteractRsp,    InteractiveMap::GadgetModule_OnGadgetInteractRsp_Hook);
-		HookManager::install(app::InLevelMapPageContext_UpdateView,    InteractiveMap::InLevelMapPageContext_UpdateView_Hook);
-		HookManager::install(app::InLevelMapPageContext_ZoomMap,       InteractiveMap::InLevelMapPageContext_ZoomMap_Hook);
-
 		// Initializing
 		LoadScenesData();
 		ApplyScaling();
-		LoadUserData();
+
+		// --Loading user data
+		CreateUserDataField("custom_points", f_CustomPointsJson, f_STCustomPoints.value());
+		CreateUserDataField("completed_points", f_CompletedPointsJson, f_STCompletedPoints.value());
+		CreateUserDataField("fixed_points", f_FixedPointsJson, f_STFixedPoints.value());
+
+		LoadCustomPoints();
+		LoadCompletedPoints();
+		LoadFixedPoints();
 
 		InitializeEntityFilters();
 		InitializeGatherDetectItems();
+
+		// Eventing
+		cheat::events::GameUpdateEvent += MY_METHOD_HANDLER(InteractiveMap::OnGameUpdate);
+		::events::WndProcEvent += MY_METHOD_HANDLER(InteractiveMap::OnWndProc);
+
+		cheat::events::AccountChangedEvent += MY_METHOD_HANDLER(InteractiveMap::OnAccountChanged);
+		config::ProfileChanged += MY_METHOD_HANDLER(InteractiveMap::OnConfigProfileChanged);
+
+		f_CompleteNearestPoint.value().PressedEvent += LAMBDA_HANDLER(
+			[this]()
+			{
+				auto& manager = game::EntityManager::instance();
+				auto point = FindNearestPoint(manager.avatar()->levelPosition(), f_PointFindRange, f_CompleteOnlyViewed, false, game::GetCurrentPlayerSceneID());
+				if (point)
+					CompletePoint(point);
+			}
+		);
+
+		f_RevertLatestCompletion.value().PressedEvent += LAMBDA_HANDLER(
+			[this]()
+			{
+				RevertLatestPointCompleting();
+			}
+		);
+
+		// Hooking
+		HookManager::install(app::MonoMiniMap_Update, InteractiveMap::MonoMiniMap_Update_Hook);
+		HookManager::install(app::GadgetModule_OnGadgetInteractRsp, InteractiveMap::GadgetModule_OnGadgetInteractRsp_Hook);
+		HookManager::install(app::InLevelMapPageContext_UpdateView, InteractiveMap::InLevelMapPageContext_UpdateView_Hook);
+		HookManager::install(app::InLevelMapPageContext_ZoomMap, InteractiveMap::InLevelMapPageContext_ZoomMap_Hook);
 	}
 
 	const FeatureGUIInfo& InteractiveMap::GetGUIInfo() const
@@ -92,83 +114,93 @@ namespace cheat::feature
 	{
 		BeginGroupPanel("General");
 		{
-			ConfigWidget("Enabled", m_Enabled);
-			ConfigWidget(m_SeparatedWindows, "Config and filters will be in separate windows.");
-			//if (ImGui::Button(m_CompletionLogShow ? "Show log window" : "Hide log window"))
-			//{
-			//	*m_CompletionLogShow.valuePtr() = !m_CompletionLogShow;
-			//	m_CompletionLogShow.Check();
-			//}
+			ConfigWidget("Enabled", f_Enabled);
+			ConfigWidget(f_SeparatedWindows, "Config and filters will be in separate windows.");
+			if (ConfigWidget(f_STCompletedPoints, "Save scope for completed items."))
+			{
+				UpdateUserDataField(f_CompletedPointsJson, f_STCompletedPoints.value(), true);
+			}
 		}
 		EndGroupPanel();
 
 		BeginGroupPanel("Icon view");
 		{
-			ConfigWidget(m_IconSize, 0.01f, 4.0f, 100.0f);
-			ConfigWidget(m_MinimapIconSize, 0.01f, 4.0f, 100.0f);
-			ConfigWidget(m_DynamicSize, "Icons will be sized dynamically depend to zoom size.\nMinimap icons don't affected.");
-			ConfigWidget(m_ShowHDIcons, "Toggle icons to HD format.");
+			ConfigWidget(f_IconSize, 0.01f, 4.0f, 100.0f);
+			ConfigWidget(f_MinimapIconSize, 0.01f, 4.0f, 100.0f);
+			ConfigWidget(f_DynamicSize, "Icons will be sized dynamically depend to zoom size.\nMinimap icons don't affected.");
+			ConfigWidget(f_ShowHDIcons, "Toggle icons to HD format.");
 		}
 		EndGroupPanel();
 
 		BeginGroupPanel("Completed icon view");
 		{
-			ConfigWidget(m_ShowCompleted, "Show completed points.");
-			ConfigWidget(m_CompletePointTransparency, 0.01f, 0.0f, 1.0f, "Completed points transparency.");
+			ConfigWidget(f_ShowCompleted, "Show completed points.");
+			ConfigWidget(f_CompletePointTransparency, 0.01f, 0.0f, 1.0f, "Completed points transparency.");
 		}
 		EndGroupPanel();
 
-		BeginGroupPanel("New item detecting");
+		BeginGroupPanel("Item adjusting");
 		{
-			ConfigWidget(m_AutoDetectNewItems, "Enables detecting items what are not in interactive map data.\n"
+			ConfigWidget(f_AutoFixItemPositions, "Do fix positions to nearest to point.\n"
 				"Only items with green line support this function.");
 
-			ConfigWidget(m_NewItemstDetectOnlyShowed, "Detect new items only for showed filters.");
+			ConfigWidget(f_AutoDetectNewItems, "Enables detecting items what are not in interactive map data.\n"
+				"Only items with green line support this function.");
 
-			ConfigWidget(m_NewItemsDetectRange, 0.1f, 5.0f, 30.0f,
-				"Only if item not found in this range about entity position,\n\t it be detected as new.");
+			ConfigWidget(f_ObjectCheckOnlyShowed, "Detect objects only for showed filters.");
 
-			ConfigWidget(m_NewItemsDetectingDelay, 10, 100, 100000, "Detect new items is power consumption operation.\n"
+			ConfigWidget(f_ObjectDetectRange, 0.1f, 5.0f, 30.0f,
+				"Fix positions: Only if item was found in this range about entity position,\n\t its position will be fixed.\n"
+				"New item detecting: Only if item not found in this range about entity position,\n\t it be detected as new."
+			);
+
+			ConfigWidget(f_CheckObjectsDelay, 10, 100, 100000, "Adjusting items is power consumption operation.\n"
 				"So rescanning will happen with specified delay.");
 		}
 		EndGroupPanel();
 
 		BeginGroupPanel("Gather detecting");
 		{
-			ConfigWidget(m_AutoDetectGatheredItems, "Enables detecting gathered items.\n"
+			ConfigWidget(f_AutoDetectGatheredItems, "Enables detecting gathered items.\n"
 				"It works only items what will be gathered after enabling this function.\n"
 				"Only items with blue line support this function.");
 
-			ConfigWidget(m_GatheredItemsDetectRange, 0.1f, 5.0f, 30.0f,
+			ConfigWidget(f_GatheredItemsDetectRange, 0.1f, 5.0f, 30.0f,
 				"When entity was gathered finding nearest point in this range.");
 		}
 		EndGroupPanel();
 
 		BeginGroupPanel("Manual completing");
 		{
-			ConfigWidget(m_CompleteNearestPoint, "When pressed, complete the nearest to avatar point.");
-			ConfigWidget(m_RevertLatestCompletion, "When pressed, revert latest complete operation.");
-			ConfigWidget(m_CompleteOnlyViewed, "Complete performed only to visible points.");
-			ConfigWidget(m_PointFindRange, 0.5f, 0.0f, 200.0f, "Complete performs within specified range. If 0 - unlimited.");
+			ConfigWidget(f_CompleteNearestPoint, true, "When pressed, complete the nearest to avatar point.");
+			ConfigWidget(f_RevertLatestCompletion, true, "When pressed, revert latest complete operation.");
+			ConfigWidget(f_CompleteOnlyViewed, "Complete performed only to visible points.");
+			ConfigWidget(f_PointFindRange, 0.5f, 0.0f, 200.0f, "Complete performs within specified range. If 0 - unlimited.");
 		}
 		EndGroupPanel();
 	}
 
-	void InteractiveMap::DrawFilters(bool searchFixed)
+	void InteractiveMap::DrawFilters(const bool searchFixed)
 	{
-		auto sceneID = game::GetCurrentMapSceneID();
+		const auto sceneID = game::GetCurrentMapSceneID();
 		if (m_ScenesData.count(sceneID) == 0)
 			ImGui::Text("Sorry. Current scene is not supported.");
 
-		ImGui::InputText("Search", &m_SearchText);
-
+		ImGui::InputText("Search", &m_SearchText); ImGui::SameLine();
+		HelpMarker(
+			"This page following with filters for items.\n"
+			"Items what was activated will be appear on mini/global map. (Obviously)\n"
+			"Each filter have options, you can access to it by clicking RMB on filter.\n"
+			"Filters can be marked with colored lines,\n"
+			"\tthey indicate that filter support some features. (Hover it)\n"
+			"Thats all for now. Happy using ^)"
+		);
 		if (searchFixed)
 			ImGui::BeginChild("FiltersList", ImVec2(-1, 0), false, ImGuiWindowFlags_NoBackground);
 
 		auto& categories = m_ScenesData[sceneID].categories;
 		for (auto& [categoryName, labels] : categories)
 		{
-			ImGui::PushID(categoryName.c_str());
 			std::vector<LabelData*> validLabels;
 
 			if (m_SearchText.empty())
@@ -188,12 +220,12 @@ namespace cheat::feature
 				}
 			}
 
-			if (validLabels.size() == 0)
+			if (validLabels.empty())
 				continue;
 
 			SelectData selData
 			{
-				std::all_of(validLabels.begin(), validLabels.end(), [](const LabelData* label) { return label->enabled->value(); }),
+				std::all_of(validLabels.begin(), validLabels.end(), [](const LabelData* label) { return label->enabled; }),
 				false
 			};
 
@@ -201,10 +233,12 @@ namespace cheat::feature
 			{
 				if (ImGui::BeginTable("MarkFilters", 2))
 				{
-					for (auto& label : validLabels)
+					for (const auto& label : validLabels)
 					{
 						ImGui::TableNextColumn();
+						ImGui::PushID(label);
 						DrawFilter(*label);
+						ImGui::PopID();
 					}
 					ImGui::EndTable();
 				}
@@ -214,13 +248,12 @@ namespace cheat::feature
 
 			if (selData.changed)
 			{
-				for (auto& label : validLabels)
+				for (const auto& label : validLabels)
 				{
-					*label->enabled->valuePtr() = selData.toggle;
+					label->enabled = selData.toggle;
 				}
-				config::UpdateAll();
 			}
-			ImGui::PopID();
+			
 		}
 
 		if (searchFixed)
@@ -237,7 +270,7 @@ namespace cheat::feature
 		ImGuiContext& g = *GImGui;
 		const ImGuiStyle& style = g.Style;
 		const ImGuiID id = window->GetID(&label);
-		const ImVec2 label_size = ImGui::CalcTextSize(label.name.c_str(), NULL, true);
+		const ImVec2 label_size = ImGui::CalcTextSize(label.name.c_str(), nullptr, true);
 
 		const float square_sz = ImGui::GetFrameHeight();
 		const float image_sz = square_sz;
@@ -278,8 +311,7 @@ namespace cheat::feature
 		bool pressed = ImGui::ButtonBehavior(total_bb, id, &hovered, &held);
 		if (pressed)
 		{
-			*label.enabled->valuePtr() = !(*label.enabled);
-			label.enabled->Check();
+			label.enabled = !label.enabled;
 
 			ImGui::MarkItemEdited(id);
 		}
@@ -296,7 +328,7 @@ namespace cheat::feature
 			ImVec2 pad(ImMax(1.0f, IM_FLOOR(square_sz / 3.6f)), ImMax(1.0f, IM_FLOOR(square_sz / 3.6f)));
 			window->DrawList->AddRectFilled(check_bb.Min + pad, check_bb.Max - pad, check_col, style.FrameRounding);
 		}
-		else if (*label.enabled)
+		else if (label.enabled.value())
 		{
 			const float pad = ImMax(1.0f, IM_FLOOR(square_sz / 6.0f));
 			ImGui::RenderCheckMark(window->DrawList, check_bb.Min + ImVec2(pad, pad), check_col, square_sz - pad * 2.0f);
@@ -361,12 +393,32 @@ namespace cheat::feature
 
 		ImVec2 label_pos = ImVec2(cursorX + style.ItemInnerSpacing.x, image_bb.Min.y + style.FramePadding.y);
 		if (g.LogEnabled)
-			ImGui::LogRenderedText(&label_pos, mixed_value ? "[~]" : *label.enabled ? "[x]" : "[ ]");
+			ImGui::LogRenderedText(&label_pos, mixed_value ? "[~]" : label.enabled.value() ? "[x]" : "[ ]");
 		if (label_size.x > 0.0f)
 			ImGui::RenderText(label_pos, label.name.c_str());
 
 		if (!markHovered && ImGui::IsItemHovered())
 			ShowHelpText(label.name.c_str());
+
+		// -- Filter options
+		if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+			ImGui::OpenPopup("Filter options");
+
+		if (ImGui::BeginPopup("Filter options", ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			if (ImGui::Button("Drop progress"))
+			{
+				for (auto& [pointID, point] : label.points)
+				{
+					if (point.completed)
+						UncompletePoint(&point);
+				}
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
+		// --
 
 		IMGUI_TEST_ENGINE_ITEM_INFO(id, label, g.LastItemData.StatusFlags | ImGuiItemStatusFlags_Checkable | (*v ? ImGuiItemStatusFlags_Checked : 0));
 		return;
@@ -385,7 +437,7 @@ namespace cheat::feature
 	}
 
 
-	std::vector<InteractiveMap::PointData*> InteractiveMap::GetEnitityPoints(game::Entity* entity, bool completed /*= false*/, uint32_t sceneID /*= 0*/)
+	std::vector<InteractiveMap::PointData*> InteractiveMap::GetEntityPoints(game::Entity* entity, bool completed /*= false*/, uint32_t sceneID /*= 0*/)
 	{
 		sceneID = sceneID == 0 ? game::GetCurrentPlayerSceneID() : sceneID;
 		if (m_ScenesData.count(sceneID) == 0)
@@ -424,11 +476,11 @@ namespace cheat::feature
 
 		auto& labels = m_ScenesData[sceneID].labels;
 		
-		PointData* minDinstancePoint = nullptr;
+		PointData* minDistancePoint = nullptr;
 		float minDistance = 0;
 		for (auto& [labelID, label] : labels)
 		{
-			if (onlyShowed && !label.enabled->value())
+			if (onlyShowed && !label.enabled)
 				continue;
 
 			PointData* nearestLabelPoint = FindNearestPoint(label, levelPosition, range, completed);
@@ -436,22 +488,22 @@ namespace cheat::feature
 				continue;
 
 			float distance = app::Vector2_Distance(nullptr, levelPosition, nearestLabelPoint->levelPosition, nullptr);
-			if (distance < minDistance || minDinstancePoint == nullptr)
+			if (distance < minDistance || minDistancePoint == nullptr)
 			{
 				minDistance = distance;
-				minDinstancePoint = nearestLabelPoint;
+				minDistancePoint = nearestLabelPoint;
 			}
 		}
 
-		if (minDinstancePoint == nullptr || (range > 0 && minDistance > range))
+		if (minDistancePoint == nullptr || (range > 0 && minDistance > range))
 			return nullptr;
 
-		return minDinstancePoint;
+		return minDistancePoint;
 	}
 
-	cheat::feature::InteractiveMap::PointData* InteractiveMap::FindNearestPoint(const LabelData& label, const app::Vector2& levelPosition, float range /*= 0.0f*/, float completed /*= false*/)
+	InteractiveMap::PointData* InteractiveMap::FindNearestPoint(const LabelData& label, const app::Vector2& levelPosition, float range /*= 0.0f*/, bool completed /*= false*/)
 	{
-		PointData* minDinstancePoint = nullptr;
+		PointData* minDistancePoint = nullptr;
 		float minDistance = 0;
 		for (auto& [pointID, point] : label.points)
 		{
@@ -459,17 +511,17 @@ namespace cheat::feature
 				continue;
 
 			float distance = app::Vector2_Distance(nullptr, levelPosition, point.levelPosition, nullptr);
-			if (distance < minDistance || minDinstancePoint == nullptr)
+			if (distance < minDistance || minDistancePoint == nullptr)
 			{
 				minDistance = distance;
-				minDinstancePoint = const_cast<PointData*>(&point);
+				minDistancePoint = const_cast<PointData*>(&point);
 			}
 		}
 
-		if (minDinstancePoint == nullptr || (range > 0 && minDistance > range))
+		if (minDistancePoint == nullptr || (range > 0 && minDistance > range))
 			return nullptr;
 
-		return minDinstancePoint;
+		return minDistancePoint;
 	}
 
 	InteractiveMap::PointData* InteractiveMap::FindEntityPoint(game::Entity* entity, float range /*= 20.0f*/, uint32_t sceneID /*= 0*/)
@@ -478,7 +530,6 @@ namespace cheat::feature
 		if (m_ScenesData.count(sceneID) == 0)
 			return nullptr;
 
-		auto levelPosition = entity->levelPosition();
 		auto& labels = m_ScenesData[sceneID].labels;
 		for (auto& [labelID, label] : labels)
 		{
@@ -501,7 +552,7 @@ namespace cheat::feature
 
 	void InteractiveMap::CompletePoint(PointData* pointData)
 	{
-		std::lock_guard<std::mutex> _userDataLock(m_UserDataMutex);
+		std::lock_guard _userDataLock(m_UserDataMutex);
 		LOG_WARNING("Complete point at %.0f.", game::EntityManager::instance().avatar()->distance(pointData->levelPosition));
 
 		if (m_CompletedPoints.count(pointData) > 0)
@@ -512,12 +563,12 @@ namespace cheat::feature
 		m_ScenesData[pointData->sceneID].labels[pointData->labelID].completedCount++;
 		m_CompletedPoints.insert(pointData);
 		
-		SaveUserData();
+		SaveCompletedPoints();
 	}
 
 	void InteractiveMap::UncompletePoint(PointData* pointData)
 	{
-		std::lock_guard<std::mutex> _userDataLock(m_UserDataMutex);
+		std::lock_guard _userDataLock(m_UserDataMutex);
 
 		if (m_CompletedPoints.count(pointData) == 0)
 			return;
@@ -527,13 +578,13 @@ namespace cheat::feature
 		m_ScenesData[pointData->sceneID].labels[pointData->labelID].completedCount--;
 		m_CompletedPoints.erase(pointData);
 
-		SaveUserData();
+		SaveCompletedPoints();
 	}
 
 	void InteractiveMap::RevertLatestPointCompleting()
 	{
-		std::lock_guard<std::mutex> _userDataLock(m_UserDataMutex);
-		if (m_CompletedPoints.size() == 0)
+		std::lock_guard _userDataLock(m_UserDataMutex);
+		if (m_CompletedPoints.empty())
 			return;
 
 		PointData* pointData = *m_CompletedPoints.begin();
@@ -542,7 +593,34 @@ namespace cheat::feature
 		m_ScenesData[pointData->sceneID].labels[pointData->labelID].completedCount--;
 		m_CompletedPoints.erase(pointData);
 
-		SaveUserData();
+		SaveCompletedPoints();
+	}
+
+	void InteractiveMap::FixPointPosition(PointData* pointData, app::Vector2 fixedPosition)
+	{
+		std::lock_guard _userDataLock(m_UserDataMutex);
+		if (!pointData->fixed)
+		{
+			pointData->fixed = true;
+			pointData->originPosition = pointData->levelPosition;
+			m_FixedPoints.insert(pointData);
+		}
+
+		pointData->levelPosition = fixedPosition;
+		SaveFixedPoints();
+	}
+
+	void InteractiveMap::UnfixPoitnPosition(PointData* pointData)
+	{
+		std::lock_guard _userDataLock(m_UserDataMutex);
+		if (!pointData->fixed)
+			return;
+
+		pointData->fixed = false;
+		pointData->levelPosition = pointData->originPosition;
+		m_FixedPoints.erase(pointData);
+
+		SaveFixedPoints();
 	}
 
 	void InteractiveMap::AddCustomPoint(uint32_t sceneID, uint32_t labelID, app::Vector2 levelPosition)
@@ -559,46 +637,47 @@ namespace cheat::feature
 
 		// TODO: Fix uint32_t overflow.
 		// Callow: I think that will never happen, but who knows, who knows...
-		while (points.count(m_CustomPointIndex) > 0)
-			(*m_CustomPointIndex.valuePtr())++;
+		while (points.count(f_CustomPointIndex) > 0)
+			f_CustomPointIndex = f_CustomPointIndex + 1;
 
-		auto& newPoint = points[m_CustomPointIndex];
-		newPoint.id = m_CustomPointIndex;
-		newPoint.isCustom = true;
+		auto& newPoint = points[f_CustomPointIndex];
+		newPoint.id = f_CustomPointIndex;
+		newPoint.custom = true;
 		newPoint.creationTimestamp = util::GetCurrentTimeMillisec();
 		newPoint.labelID = labelID;
 		newPoint.sceneID = sceneID;
 		newPoint.levelPosition = levelPosition;
 		m_CustomPoints.insert(&newPoint);
 
-		(*m_CustomPointIndex.valuePtr())++;
-		m_CustomPointIndex.Check();
-
-		SaveUserData();
+		f_CustomPointIndex = f_CustomPointIndex + 1;
+		SaveCustomPoints();
 	}
 
 	void InteractiveMap::RemoveCustomPoint(PointData* pointData)
 	{
-		std::lock_guard<std::mutex> _userDataLock(m_UserDataMutex);
-		if (m_CustomPoints.size() == 0)
+		std::lock_guard _userDataLock(m_UserDataMutex);
+		if (m_CustomPoints.empty())
 			return;
 
 		m_CustomPoints.erase(pointData);
 		m_ScenesData[pointData->sceneID].labels[pointData->labelID].points.erase(pointData->id);
-		SaveUserData();
+		SaveCustomPoints();
 	}
 
 	void InteractiveMap::OnGameUpdate()
 	{
-		NewItemsDetect(); // Calling it from game update thread to avoid screen freezes
+		CheckObjects(); // Calling it from game update thread to avoid screen freezes
 	}
 
 	// For now this use straightforward method
 	// More advanced method description here: https://github.com/CallowBlack/genshin-cheat/issues/176
-	void InteractiveMap::NewItemsDetect()
+	void InteractiveMap::CheckObjects()
 	{
-		UPDATE_DELAY(m_NewItemsDetectingDelay);
-		
+		UPDATE_DELAY(f_CheckObjectsDelay);
+
+		if (!f_AutoFixItemPositions && !f_AutoDetectNewItems)
+			return;
+
 		auto sceneID = game::GetCurrentPlayerSceneID();
 		if (m_ScenesData.count(sceneID) == 0)
 			return;
@@ -615,18 +694,17 @@ namespace cheat::feature
 			if (label.filter == nullptr)
 				continue;
 
-			if (m_NewItemstDetectOnlyShowed && !label.enabled->value())
+			if (f_ObjectCheckOnlyShowed && !label.enabled)
 				continue;
 
-			auto& newElement = supportedEntities.emplace_back(&label, std::unordered_set<game::Entity*>{});
-			auto& entities = newElement.second;
+			auto& [entityId, entities] = supportedEntities.emplace_back(&label, std::unordered_set<game::Entity*>{});
 			for (auto& entity : manager.entities())
 			{
 				if (filterExecutor.ApplyFilter(entity, label.filter))
 					entities.insert(entity);
 			}
 
-			if (entities.size() == 0)
+			if (entities.empty())
 				supportedEntities.pop_back();
 		}
 
@@ -653,11 +731,16 @@ namespace cheat::feature
 				if (nearestPoint == nullptr)
 					break;
 
-				if (minDistance > m_NewItemsDetectRange)
+				if (minDistance > f_ObjectDetectRange)
 				{
-					AddCustomPoint(nearestPoint->sceneID, nearestPoint->labelID, entity->levelPosition());
+					if (f_AutoDetectNewItems)
+						AddCustomPoint(nearestPoint->sceneID, nearestPoint->labelID, entity->levelPosition());
+
 					continue;
 				}
+
+				if (f_AutoFixItemPositions && !nearestPoint->fixed)
+					FixPointPosition(nearestPoint, entity->levelPosition());
 
 				pointsSet.erase(nearestPoint);
 			}
@@ -680,7 +763,7 @@ namespace cheat::feature
 			}
 		}
 
-		callOrigin(GadgetModule_OnGadgetInteractRsp_Hook, __this, notify, method);
+		CALL_ORIGIN(GadgetModule_OnGadgetInteractRsp_Hook, __this, notify, method);
 	}
 
 	void InteractiveMap::OnItemGathered(game::Entity* entity)
@@ -698,7 +781,7 @@ namespace cheat::feature
 			if (!label.filter->IsValid(entity))
 				continue;
 
-			auto nearestPoint = FindNearestPoint(label, entity->levelPosition(), m_GatheredItemsDetectRange, sceneID);
+			auto nearestPoint = FindNearestPoint(label, entity->levelPosition(), f_GatheredItemsDetectRange, sceneID);
 			if (nearestPoint == nullptr)
 			{
 				LOG_WARNING("Failed to find uncompleted point for this object.");
@@ -708,18 +791,64 @@ namespace cheat::feature
 			return;
 		}
 	}
-
-	void InteractiveMap::LoadUserData()
+	void InteractiveMap::ResetUserData(ResetElementFunc func)
 	{
-		nlohmann::json jRoot = nlohmann::json::parse(m_UserPointsData.value(), nullptr, false);
-
-		if (jRoot.is_discarded())
+		for (auto& [sceneID, scene] : m_ScenesData)
 		{
-			LOG_ERROR("Failed parse user points.");
-			return;
-		}
+			for (auto& [labelID, label] : scene.labels)
+			{
+				std::vector<uint32_t> toRemovePoints;
+				for (auto& [pointID, point] : label.points)
+				{
+					bool needToRemove = (this->*func)(&label, &point);
+					if (needToRemove)
+						toRemovePoints.push_back(pointID);
+				}
 
-		for (auto& [cSceneID, jLabels] : jRoot.items())
+				for (auto& pointID : toRemovePoints)
+				{
+					label.points.erase(pointID);
+				}
+			}
+		}
+	}
+
+	bool InteractiveMap::ResetCompletedPointData(LabelData* label, PointData* point)
+	{
+		if (!point->completed)
+			return false;
+
+		point->completed = false;
+		point->completeTimestamp = 0;
+
+		label->completedCount--;
+		return false;
+	}
+
+	bool InteractiveMap::ResetCustomPointData(LabelData* label, PointData* point)
+	{
+		if (!point->custom)
+			return false;
+
+		return true;
+	}
+
+	bool InteractiveMap::ResetFixedPointData(LabelData* label, PointData* point)
+	{
+		if (!point->fixed)
+			return false;
+
+		point->levelPosition = point->originPosition;
+
+		point->fixed = false;
+		point->originPosition = {};
+
+		return false;
+	}
+
+	void InteractiveMap::LoadUserData(const nlohmann::json& data, LoadElementFunc func)
+	{
+		for (auto& [cSceneID, jLabels] : data.items())
 		{
 			auto sceneID = std::stoul(cSceneID);
 			if (m_ScenesData.count(sceneID) == 0)
@@ -739,15 +868,10 @@ namespace cheat::feature
 				}
 
 				auto& label = labels[labelID];
-				
-				// NOTE. Custom points should finding first.
-				auto customPoints = jLabelUserData.value("custom_points", nlohmann::json::array());
-				for (auto& customPoint : customPoints)
-					LoadCustomPointData(&label, customPoint);
 
-				auto completedPoints = jLabelUserData.value("completed_points", nlohmann::json::array());
-				for (auto& completeData : completedPoints)
-					LoadCompletedPointData(&label, completeData);
+				auto& elements = jLabelUserData;
+				for (auto& element : elements)
+					(this->*func)(&label, element);
 			}
 		}
 	}
@@ -766,7 +890,7 @@ namespace cheat::feature
 		newPointEntry = customPoint;
 		newPointEntry.sceneID = labelData->sceneID;
 		newPointEntry.labelID = labelData->id;
-		newPointEntry.isCustom = true;
+		newPointEntry.custom = true;
 		newPointEntry.creationTimestamp = data["creation_timestamp"];
 
 		m_CustomPoints.insert(&newPointEntry);
@@ -775,7 +899,7 @@ namespace cheat::feature
 	void InteractiveMap::LoadCompletedPointData(LabelData* labelData, const nlohmann::json& data)
 	{
 		auto& points = labelData->points;
-		auto& pointID = data["point_id"];
+		auto pointID = data["point_id"].get<uint32_t>();
 
 		if (points.count(pointID) == 0)
 		{
@@ -786,7 +910,7 @@ namespace cheat::feature
 		auto& point = points[pointID];
 		if (m_CompletedPoints.count(&point) > 0)
 		{
-			LOG_WARNING("Completed point %u dublicate.", pointID);
+			LOG_WARNING("Completed point %u duplicate.", pointID);
 			return;
 		}
 
@@ -797,7 +921,32 @@ namespace cheat::feature
 		m_CompletedPoints.insert(&point);
 	}
 
-	void InteractiveMap::SaveUserData()
+	void InteractiveMap::LoadFixedPointData(LabelData* labelData, const nlohmann::json& data)
+	{
+		auto& points = labelData->points;
+		auto pointID = data["point_id"].get<uint32_t>();
+
+		if (points.count(pointID) == 0)
+		{
+			LOG_WARNING("Point %u don't exist. Maybe data was updated.", pointID);
+			return;
+		}
+
+		auto& point = points[pointID];
+		if (m_FixedPoints.count(&point) > 0)
+		{
+			LOG_WARNING("Fixed point %u duplicate.", pointID);
+			return;
+		}
+
+		point.fixed = true;
+		point.originPosition = point.levelPosition;
+		point.levelPosition = { data["x_pos"], data["y_pos"] };
+
+		m_FixedPoints.insert(&point);
+	}
+
+	void InteractiveMap::SaveUserData(nlohmann::json& data, SaveElementFunc func)
 	{
 		nlohmann::json jRoot = {};
 
@@ -811,39 +960,26 @@ namespace cheat::feature
 			{
 				auto cLabelID = std::to_string(labelID);
 
-				jLabels[cLabelID] = nlohmann::json::object();
-				jLabels[cLabelID]["completed_points"] = nlohmann::json::array();
-				jLabels[cLabelID]["custom_points"] = nlohmann::json::array();
+				auto& container = jLabels[cLabelID];
+				container = nlohmann::json::array();
 
-				auto& jCompletedPoints = jLabels[cLabelID]["completed_points"];
-				auto& jCustomPoints = jLabels[cLabelID]["custom_points"];
 				for (auto& [pointID, point] : label.points)
-				{
-					SaveCustomPointData(jCustomPoints, &point);
-					SaveCompletedPointData(jCompletedPoints, &point);
-				}
-
-				if (jCustomPoints.size() == 0)
-					jLabels[cLabelID].erase("custom_points");
-
-				if (jCompletedPoints.size() == 0)
-					jLabels[cLabelID].erase("completed_points");
+					(this->*func)(container, &point);
 				
-				if (jLabels[cLabelID].size() == 0)
+				if (container.empty())
 					jLabels.erase(cLabelID);
 			}
 
-			if (jLabels.size() == 0)
+			if (jLabels.empty())
 				jRoot.erase(cSceneID);
 		}
 
-		*m_UserPointsData.valuePtr() = jRoot.dump();
-		m_UserPointsData.Check();
+		data = jRoot;
 	}
 
 	void InteractiveMap::SaveCustomPointData(nlohmann::json& jObject, PointData* point)
 	{
-		if (!point->isCustom)
+		if (!point->custom)
 			return;
 
 		auto jPoint = nlohmann::json::object();
@@ -865,9 +1001,140 @@ namespace cheat::feature
 		jObject.push_back(jPoint);
 	}
 
-	cheat::feature::InteractiveMap::PointData InteractiveMap::ParsePointData(const nlohmann::json& data)
+	void InteractiveMap::SaveFixedPointData(nlohmann::json& jObject, PointData* point)
 	{
-		return { data["id"], 0, 0, { data["x_pos"], data["y_pos"] }, false, 0};
+		if (!point->fixed)
+			return;
+
+		jObject.push_back(
+			{
+				{ "point_id", point->id },
+				{ "x_pos", point->levelPosition.x },
+				{ "y_pos", point->levelPosition.y }
+			}
+		);
+	}
+
+	void InteractiveMap::LoadCompletedPoints()
+	{
+		LoadUserData(f_CompletedPointsJson, &InteractiveMap::LoadCompletedPointData);
+	}
+
+	void InteractiveMap::SaveCompletedPoints()
+	{
+		SaveUserData(f_CompletedPointsJson, &InteractiveMap::SaveCompletedPointData);
+		f_CompletedPointsJson.FireChanged();
+	}
+
+	void InteractiveMap::ResetCompletedPoints()
+	{
+		ResetUserData(&InteractiveMap::ResetCompletedPointData);
+		m_CompletedPoints.clear();
+	}
+
+	void InteractiveMap::LoadCustomPoints()
+	{
+		LoadUserData(f_CustomPointsJson, &InteractiveMap::LoadCustomPointData);
+	}
+
+	void InteractiveMap::SaveCustomPoints()
+	{
+		SaveUserData(f_CustomPointsJson, &InteractiveMap::SaveCustomPointData);
+		f_CustomPointsJson.FireChanged();
+	}
+
+	void InteractiveMap::ResetCustomPoints()
+	{
+		ResetUserData(&InteractiveMap::ResetCustomPointData);
+		m_CustomPoints.clear();
+	}
+
+	void InteractiveMap::LoadFixedPoints()
+	{
+		LoadUserData(f_FixedPointsJson, &InteractiveMap::LoadFixedPointData);
+	}
+
+	void InteractiveMap::SaveFixedPoints()
+	{
+		SaveUserData(f_FixedPointsJson, &InteractiveMap::SaveFixedPointData);
+		f_FixedPointsJson.FireChanged();
+	}
+
+	void InteractiveMap::ResetFixedPoints()
+	{
+		ResetUserData(&InteractiveMap::ResetFixedPointData);
+		m_FixedPoints.clear();
+	}
+
+	void InteractiveMap::CreateUserDataField(const char* name, config::Field<nlohmann::json>& field, SaveAttachType saveType)
+	{
+		auto sectionName = GetUserDataFieldSection(saveType);
+		field = config::CreateField<nlohmann::json>("", name, sectionName, saveType != SaveAttachType::Profile, nlohmann::json::object());
+	}
+
+	void InteractiveMap::UpdateUserDataField(config::Field<nlohmann::json>& field, SaveAttachType saveType, bool move)
+	{
+		auto newSectionName = GetUserDataFieldSection(saveType);
+		if (move)
+			field.move(newSectionName, saveType != SaveAttachType::Profile);
+		else
+			field.repos(newSectionName, saveType != SaveAttachType::Profile);
+	}
+
+	std::string InteractiveMap::GetUserDataFieldSection(SaveAttachType saveType)
+	{
+		switch(saveType)
+		{
+		case SaveAttachType::Account:
+			return fmt::format("InteractiveMap::accounts::{}", f_LastUserID.value());
+		case SaveAttachType::Profile:
+		case SaveAttachType::Global:
+		default:
+			return "InteractiveMap";
+		}
+	}
+
+#define RESET_IF(name, type) if (f_ST##name##Points.value() == type) { UpdateUserDataField(f_##name##PointsJson, f_ST##name##Points.value()); Reset##name##Points(); }
+#define LOAD_IF(name, type) if (f_ST##name##Points.value() == type) { Load##name##Points(); }
+
+	void InteractiveMap::OnConfigProfileChanged()
+	{
+		// TO DO: Fix the problem when customPoints is account but completed points for profile
+
+		RESET_IF(Completed, SaveAttachType::Profile);
+		RESET_IF(Fixed, SaveAttachType::Profile);
+		RESET_IF(Custom, SaveAttachType::Profile);
+
+		LOAD_IF(Custom, SaveAttachType::Profile);
+		LOAD_IF(Fixed, SaveAttachType::Profile);
+		LOAD_IF(Completed, SaveAttachType::Profile);
+	}
+
+	void InteractiveMap::OnAccountChanged(uint32_t userID)
+	{
+		if (userID == 0 || f_LastUserID == userID)
+			return;
+
+		f_LastUserID = userID;
+
+		// TO DO: Fix the problem when customPoints is account but completed points for profile
+		RESET_IF(Completed, SaveAttachType::Account);
+		RESET_IF(Fixed, SaveAttachType::Account);
+		RESET_IF(Custom, SaveAttachType::Account);
+
+		LOAD_IF(Custom, SaveAttachType::Account);
+		LOAD_IF(Fixed, SaveAttachType::Account);
+		LOAD_IF(Completed, SaveAttachType::Account);
+	}
+
+#undef RESET_IF
+#undef LOAD_IF
+	InteractiveMap::PointData InteractiveMap::ParsePointData(const nlohmann::json& data)
+	{
+		PointData newPoint {};
+		newPoint.id = data["id"];
+		newPoint.levelPosition = { data["x_pos"], data["y_pos"] };
+		return newPoint;
 	}
 
 	void InteractiveMap::LoadLabelData(const nlohmann::json& data, uint32_t sceneID, uint32_t labelID)
@@ -879,11 +1146,8 @@ namespace cheat::feature
 		labelEntry.sceneID = sceneID;
         labelEntry.name = data["name"];
         labelEntry.clearName = data["clear_name"];
-        labelEntry.enabled = new config::field::BaseField<bool>(labelEntry.name,
-            fmt::format("{}_{}", sceneID, labelEntry.clearName),
-            "InteractiveMapFilters", false);
-
-        config::AddField(*labelEntry.enabled);
+        labelEntry.enabled = config::CreateField<bool>(labelEntry.name, labelEntry.clearName,
+			fmt::format("InteractiveMap::Filters::Scene{}", sceneID), false, false);
 
         for (auto& pointJsonData : data["points"])
         {
@@ -897,7 +1161,7 @@ namespace cheat::feature
         sceneData.nameToLabel[labelEntry.clearName] = &labelEntry;
 	}
 
-	void InteractiveMap::LoadCategorieData(const nlohmann::json& data, uint32_t sceneID)
+	void InteractiveMap::LoadCategoriaData(const nlohmann::json& data, uint32_t sceneID)
 	{
         auto& sceneData = m_ScenesData[sceneID];
         auto& labels = sceneData.labels;
@@ -931,7 +1195,7 @@ namespace cheat::feature
 
         for (auto& categorie : data["categories"])
         {
-            LoadCategorieData(categorie, sceneID);
+            LoadCategoriaData(categorie, sceneID);
         }
 	}
 
@@ -964,33 +1228,52 @@ namespace cheat::feature
         return scalingData;
     }
 
+
+	void InteractiveMap::ApplySceneScalling(uint32_t sceneId, const ScallingInput& input)
+    {
+		ScalingData xScale = ComputeScaling({ input.normal1.x, input.normal2.x }, { input.scalled1.x, input.scalled2.x });
+		ScalingData yScale = ComputeScaling({ input.normal1.y, input.normal2.y }, { input.scalled1.y, input.scalled2.y });
+
+		app::Vector2 scale = { xScale.scale, yScale.scale };
+		app::Vector2 offset = { xScale.offset, yScale.offset };
+
+		LOG_DEBUG("Position scaling for scene %u: scale %0.3f %0.3f, offset %0.3f %0.3f", sceneId, scale.x, scale.y, offset.x, offset.y);
+		auto& sceneData = m_ScenesData[sceneId];
+		for (auto& [labelID, labelData] : sceneData.labels)
+		{
+			for (auto& [pointID, point] : labelData.points)
+			{
+				point.levelPosition = point.levelPosition * scale + offset;
+			}
+		}
+		
+    }
+
 	void InteractiveMap::ApplyScaling()
 	{
-        // For find scaling we need two objects' correct & scaled coordinates
-        // Better find objects with one point on map
-        app::Vector2 NormalPos1 = { 1301.2f, 2908.4f }; // AnemoHypostasis
-        app::Vector2 NormalPos2 = { 1942.3f, 1308.9f }; // ElectroHypostasis
+#define APPLY_SCENE_OFFSETS(sceneID, name1, normal1x, normal1y, name2, normal2x, normal2y) {\
+			app::Vector2 NormalPos1 = { normal1x, normal1y }; \
+			app::Vector2 NormalPos2 = { normal2x, normal2y }; \
+			app::Vector2 ScalledPos1 = m_ScenesData[sceneID].nameToLabel[name1]->points.begin()->second.levelPosition; \
+			app::Vector2 ScalledPos2 = m_ScenesData[sceneID].nameToLabel[name2]->points.begin()->second.levelPosition; \
+			ApplySceneScalling(sceneID, {NormalPos1, NormalPos2, ScalledPos1, ScalledPos2}); \
+		}
 
-        app::Vector2 ScalledPos1 = m_ScenesData[3].nameToLabel["AnemoHypostasis"]->points.begin()->second.levelPosition;
-        app::Vector2 ScalledPos2 = m_ScenesData[3].nameToLabel["ElectroHypostasis"]->points.begin()->second.levelPosition;
+		// For find scaling we need two objects' correct & scaled coordinates
+		// Better find objects with one point on map
+		APPLY_SCENE_OFFSETS(3,
+			"AnemoHypostasis", 1301.2f, 2908.4f,
+			"ElectroHypostasis", 1942.3f, 1308.9f);
 
-        ScalingData xScale = ComputeScaling({ NormalPos1.x, NormalPos2.x }, { ScalledPos1.x, ScalledPos2.x });
-        ScalingData yScale = ComputeScaling({ NormalPos1.y, NormalPos2.y }, { ScalledPos1.y, ScalledPos2.y });
+		APPLY_SCENE_OFFSETS(5,
+			"RuinHunter", -54.4f, -53.7f,
+			"RuinGrader", 428.9f, 505.0f);
 
-        app::Vector2 scale = { xScale.scale, yScale.scale };
-        app::Vector2 offset = { xScale.offset, yScale.offset };
+		APPLY_SCENE_OFFSETS(6,
+			"Medaka", -649.27f, 776.9f,
+			"SweetFlowerMedaka", -720.16f, 513.55f);
+#undef APPLY_SCENE_OFFSETS
 
-        LOG_DEBUG("Position scaling: scale %0.3f %0.3f, offset %0.3f %0.3f", scale.x, scale.y, offset.x, offset.y);
-        for (auto& [sceneID, sceneData] : m_ScenesData)
-        {
-            for (auto& [labelID, labelData] : sceneData.labels)
-            {
-                for (auto& [pointID, point] : labelData.points)
-                {
-                    point.levelPosition = point.levelPosition * scale + offset;
-                }
-            }
-        }
 	}
 
 	static bool IsMapActive()
@@ -1005,7 +1288,7 @@ namespace cheat::feature
 	static app::Rect s_MapViewRect = { 0, 0, 1, 1 };
 	void InteractiveMap::InLevelMapPageContext_UpdateView_Hook(app::InLevelMapPageContext* __this, MethodInfo* method)
 	{
-		callOrigin(InLevelMapPageContext_UpdateView_Hook, __this, method);
+		CALL_ORIGIN(InLevelMapPageContext_UpdateView_Hook, __this, method);
 		s_MapViewRect = __this->fields._mapViewRect;
 	}
 
@@ -1054,7 +1337,7 @@ namespace cheat::feature
 	void InteractiveMap::MonoMiniMap_Update_Hook(app::MonoMiniMap* __this, MethodInfo* method)
 	{
 		_monoMiniMap = __this;
-		callOrigin(MonoMiniMap_Update_Hook, __this, method);
+		CALL_ORIGIN(MonoMiniMap_Update_Hook, __this, method);
 	}
 
 	static bool IsMiniMapActive()
@@ -1078,12 +1361,29 @@ namespace cheat::feature
 		return _monoMiniMap->fields._areaMinDistance;
 	}
 
+	static void MapToggled(bool showed)
+	{
+		auto& cheatManager = GenshinCM::instance();
+		bool isCursorVisible = cheatManager.CursorGetVisibility();
+		if ((showed && !isCursorVisible) || (!showed && isCursorVisible && !cheatManager.IsMenuShowed()))
+			cheatManager.CursorSetVisibility(showed);
+	}
+
 	void InteractiveMap::DrawExternal()
 	{
-		if (IsMiniMapActive())
+
+		if (IsMiniMapActive() && f_Enabled)
 			DrawMinimapPoints();
 
-        if (!IsMapActive())
+		static bool _lastMapActive = false;
+		bool mapActive = IsMapActive();
+
+		if (mapActive != _lastMapActive)
+			MapToggled(mapActive);
+
+		_lastMapActive = mapActive;
+
+		if (!mapActive)
             return;
 
 		auto mapManager = GET_SINGLETON(MapManager);
@@ -1103,28 +1403,27 @@ namespace cheat::feature
 			{
 				DrawMenu();
 
-				if (!m_SeparatedWindows)
+				if (!f_SeparatedWindows)
 				{
 					ImGui::Spacing();
 					DrawFilters(false);
 				}
-				ImGui::End();
 			}
+			ImGui::End();
 
-			if (m_SeparatedWindows)
+			if (f_SeparatedWindows)
 			{
 				bool filtersOpened = ImGui::Begin("Filters", nullptr, ImGuiWindowFlags_NoFocusOnAppearing);
 				AddWindowRect();
 
 				if (filtersOpened)
-				{
 					DrawFilters();
-					ImGui::End();
-				}
+
+				ImGui::End();
 			}
 		}
 
-		if (!m_Enabled)
+		if (!f_Enabled)
 			return;
 
         DrawPoints();
@@ -1155,14 +1454,14 @@ namespace cheat::feature
 
 	void InteractiveMap::DrawPoint(const PointData& pointData, const ImVec2& screenPosition, float radius, float radiusSquared, ImTextureID texture, bool selectable)
 	{
-		if (pointData.completed && !m_ShowCompleted)
+		if (pointData.completed && !f_ShowCompleted)
 			return;
 
-		float transparency = pointData.completed ? m_CompletePointTransparency : 1.0f;
+		float transparency = pointData.completed ? f_CompletePointTransparency : 1.0f;
 
 		if (/* m_SelectedPoint == nullptr && */!selectable || m_HoveredPoint != nullptr)
 		{
-			RenderPointCircle(screenPosition, texture, transparency, radius, pointData.isCustom);
+			RenderPointCircle(screenPosition, texture, transparency, radius, pointData.custom);
 			return;
 		}
 
@@ -1170,14 +1469,14 @@ namespace cheat::feature
 		ImVec2 diffSize = screenPosition - mousePos;
 		if (diffSize.x * diffSize.x + diffSize.y * diffSize.y > radiusSquared)
 		{
-			RenderPointCircle(screenPosition, texture, transparency, radius, pointData.isCustom);
+			RenderPointCircle(screenPosition, texture, transparency, radius, pointData.custom);
 			return;
 		}
 
 		m_HoveredPoint = const_cast<PointData*>(&pointData);
 		radius *= 1.2f;
 
-		RenderPointCircle(screenPosition, texture, transparency, radius, pointData.isCustom);
+		RenderPointCircle(screenPosition, texture, transparency, radius, pointData.custom);
 
 		if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
 		{
@@ -1190,30 +1489,17 @@ namespace cheat::feature
 
     void InteractiveMap::DrawPoints()
 	{
-		// static uint32_t _lastSceneID = 0;
 		static const float relativeSizeX = 821.0f;
-
-		// TODO: Remove
-		auto draw = ImGui::GetBackgroundDrawList();
-		std::string fpsString = fmt::format("{:.1f}/{:.1f}", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-		draw->AddText(ImVec2(100, 100), ImColor(0, 0, 0), fpsString.c_str());
-		// 
 
 		auto sceneID = game::GetCurrentMapSceneID();
 		if (m_ScenesData.count(sceneID) == 0)
 			return;
-		
-		//if (sceneID != _lastSceneID)
-		//{
-		//	_lastSceneID = sceneID;
-		//	RefreshValidPoints();
-		//}
 
 		ImVec2 screenSize = { static_cast<float>(app::Screen_get_width(nullptr, nullptr)),
 			static_cast<float>(app::Screen_get_height(nullptr, nullptr)) };
 
 		
-		auto iconSize = (m_DynamicSize && s_MapViewRect.m_Width != 0.0f) ? m_IconSize * (relativeSizeX / s_MapViewRect.m_Width) : m_IconSize;
+		auto iconSize = (f_DynamicSize && s_MapViewRect.m_Width != 0.0f) ? f_IconSize * (relativeSizeX / s_MapViewRect.m_Width) : f_IconSize;
 		auto radius = iconSize / 2;
 		auto radiusSquared = radius * radius;
 
@@ -1224,10 +1510,10 @@ namespace cheat::feature
 		auto& labels = m_ScenesData[sceneID].labels;
 		for (auto& [labelID, label] : labels)
 		{
-			if (!label.enabled->value())
+			if (!label.enabled)
 				continue;
 
-			auto image = ImageLoader::GetImage(m_ShowHDIcons ? "HD" + label.clearName : label.clearName);
+			auto image = ImageLoader::GetImage(f_ShowHDIcons ? "HD" + label.clearName : label.clearName);
 			for (auto& [pointID, point] : label.points)
 			{
 				auto screenPosition = LevelToMapScreenPos(point.levelPosition);
@@ -1289,6 +1575,14 @@ namespace cheat::feature
 		return _miniMapCircle;
 	}
 
+	static float GetMinimapScale()
+	{
+		if (_monoMiniMap == nullptr || _monoMiniMap->fields.context == nullptr)
+			return 1.0f;
+
+		return app::InLevelMainPageContext_get_miniMapScale(_monoMiniMap->fields.context, nullptr);
+	}
+
 	static float GetMinimapRotation()
 	{
 		if (_monoMiniMap == nullptr)
@@ -1324,17 +1618,17 @@ namespace cheat::feature
 
 		ImCircle minimapCircle = GetMinimapCircle();
 		auto avatarLevelPos = game::EntityManager::instance().avatar()->levelPosition();
-		auto scale = minimapCircle.radius / minimapAreaLevelRadius;
+		auto scale = minimapCircle.radius * GetMinimapScale() / minimapAreaLevelRadius;
 		
-		auto iconRadius = m_MinimapIconSize / 2;
+		auto iconRadius = f_MinimapIconSize / 2;
 
 		auto& labels = m_ScenesData[sceneID].labels;
 		for (auto& [labelID, label] : labels)
 		{
-			if (!label.enabled->value())
+			if (!label.enabled)
 				continue;
 
-			auto image = ImageLoader::GetImage(m_ShowHDIcons ? "HD" + label.clearName : label.clearName);
+			auto image = ImageLoader::GetImage(f_ShowHDIcons ? "HD" + label.clearName : label.clearName);
 			for (auto& [pointID, point] : label.points)
 			{
 				ImVec2 positionDiff = { point.levelPosition.x - avatarLevelPos.x, avatarLevelPos.y - point.levelPosition.y };
@@ -1379,7 +1673,7 @@ namespace cheat::feature
 		if (MouseInIMapWindow())
 			return;
 
-		return callOrigin(InLevelMapPageContext_ZoomMap_Hook, __this, value, method);
+		return CALL_ORIGIN(InLevelMapPageContext_ZoomMap_Hook, __this, value, method);
 	}
 
 	void InteractiveMap::OnWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool& cancelled)
@@ -1405,22 +1699,6 @@ namespace cheat::feature
 			break;
 		default:
 			break;
-		}
-	}
-
-	void InteractiveMap::OnKeyUp(short key, bool& cancelled)
-	{
-		if (m_CompleteNearestPoint.value().IsPressed(key))
-		{
-			auto& manager = game::EntityManager::instance();
-			auto point = FindNearestPoint(manager.avatar()->levelPosition(), m_PointFindRange, m_CompleteOnlyViewed, false, game::GetCurrentPlayerSceneID());
-			if (point)
-				CompletePoint(point);
-		}
-
-		if (m_RevertLatestCompletion.value().IsPressed(key))
-		{
-			RevertLatestPointCompleting();
 		}
 	}
 
@@ -1610,5 +1888,4 @@ namespace cheat::feature
 
 #undef INIT_DETECT_ITEM
 	}
-
 }

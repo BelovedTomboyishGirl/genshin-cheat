@@ -1,11 +1,11 @@
 #pragma once
-#include <cheat-base/scanner/PatternScanner.h>
+#include <cheat-base/PatternScanner.h>
 class ILPatternScanner :
     public PatternScanner
 {
 
 public:
-	ILPatternScanner(const std::string& content);
+	ILPatternScanner();
 	
 	uintptr_t SearchAPI(const std::string& apiFunctionName);
 	uintptr_t SearchTypeInfo(const std::string& typeName);
@@ -14,6 +14,9 @@ public:
 	uintptr_t Search(const std::string& moduleName, const std::string& name) override;
 
 	void SearchAll() override;
+
+	void SaveJson(nlohmann::json& outObject) override;
+	bool LoadJson(const nlohmann::json& object) override;
 
 protected:
 
@@ -43,9 +46,6 @@ protected:
 
 	std::map<std::string, uintptr_t> LoadOffsetMap(const nlohmann::json& inObject);
 	void SaveOffsetMap(nlohmann::json& outObject, const std::map<std::string, uintptr_t>& map);
-
-	void SaveJson(nlohmann::json& outObject) override;
-	bool LoadJson(const nlohmann::json& object) override;
 
 	void LoadMetadata();
 	void LoadMethodPointers();

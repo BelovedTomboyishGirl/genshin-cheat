@@ -11,6 +11,21 @@
 
 #define LOG_LAST_ERROR(fmt, ...) util::LogLastError(__FILE__, __LINE__, fmt, __VA_ARGS__)
 
+#define UPDATE_DELAY(delay) \
+							static ULONGLONG s_LastUpdate = 0;       \
+                            ULONGLONG currentTime = GetTickCount64();\
+                            if (s_LastUpdate + (delay) > currentTime)  \
+                                return;                              \
+							s_LastUpdate = currentTime;
+
+#define UPDATE_DELAY_VAR(type, name, delay) \
+							static type name = {};                   \
+							static ULONGLONG s_LastUpdate = 0;       \
+                            ULONGLONG currentTime = GetTickCount64();\
+                            if (s_LastUpdate + (delay) > currentTime)  \
+                                return name;                         \
+                            s_LastUpdate = currentTime;
+
 namespace util 
 {
 	std::optional<std::string> SelectFile(const char* filter, const char* title);
@@ -48,7 +63,7 @@ namespace util
 	}
 
 	template<class T>
-	static T ReadValue(void* data, int offset, bool littleEndian = false)
+	static T ReadMapped(void* data, int offset, bool littleEndian = false)
 	{
 		char* cData = (char*)data;
 		T result = {};

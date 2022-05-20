@@ -29,6 +29,7 @@
 #include <imgui.h>
 #include <imconfig.h>
 #include <backends/imgui_impl_dx11.h>
+#include <imgui_notify.h>
 
 #include <SimpleIni.h>
 #include <fmt/format.h>
@@ -36,4 +37,11 @@
 
 #include <cheat-base/Logger.h>
 
+#include <cheat-base/events/event.hpp>
+#include <cheat-base/events/handlers/methodeventhandler.hpp>
+#include <cheat-base/events/handlers/functoreventhandler.hpp>
+#include <cheat-base/events/joins/handlereventjoin.hpp>
+#include <cheat-base/events/joins/eventjoinwrapper.hpp>
+
+#include <cheat-base/globals.h>
 #endif //PCH_H

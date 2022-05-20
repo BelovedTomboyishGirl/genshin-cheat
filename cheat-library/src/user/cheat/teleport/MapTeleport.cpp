@@ -18,10 +18,10 @@ namespace cheat::feature
 	static void Entity_SetPosition_Hook(app::BaseEntity* __this, app::Vector3 position, bool someBool, MethodInfo* method);
 
     MapTeleport::MapTeleport() : Feature(),
-        NF(m_Enabled, "Map teleport", "MapTeleport", false),
-		NF(m_DetectHeight, "Auto height detect", "MapTeleport", true),
-		NF(m_DefaultHeight, "Default teleport height", "MapTeleport", 300.0f),
-		NF(m_Key, "Teleport key", "MapTeleport", Hotkey('T'))
+        NF(f_Enabled, "Map teleport", "MapTeleport", false),
+		NF(f_DetectHeight, "Auto height detect", "MapTeleport", true),
+		NF(f_DefaultHeight, "Default teleport height", "MapTeleport", 300.0f),
+		NF(f_Key, "Teleport key", "MapTeleport", Hotkey('T'))
     {
 		// Map touch
 		HookManager::install(app::InLevelMapPageContext_OnMarkClicked, InLevelMapPageContext_OnMarkClicked_Hook);
@@ -49,7 +49,7 @@ namespace cheat::feature
     void MapTeleport::DrawMain()
     {
 		ConfigWidget("Enabled",
-			m_Enabled,
+			f_Enabled,
 			"Enable teleport-to-mark functionality.\n" \
 			"Usage: \n" \
 			"\t1. Open map.\n" \
@@ -59,17 +59,17 @@ namespace cheat::feature
 			"Adjust Override Height accordingly to help avoid."
 		);
 
-		if (!m_Enabled)
+		if (!f_Enabled)
 			ImGui::BeginDisabled();
 
-		ConfigWidget("Override Height (m)", m_DefaultHeight, 1.0F, 200.0F, 800.0F,
+		ConfigWidget("Override Height (m)", f_DefaultHeight, 1.0F, 200.0F, 800.0F,
 			"If teleport cannot get ground height of target location,\nit will teleport you to the height specified here.\n" \
 			"It is recommended to have this value to be at least as high as a mountain.\nOtherwise, you may fall through the ground.");
 
-		ConfigWidget("Teleport Key", m_Key, true,
+		ConfigWidget("Teleport Key", f_Key, true,
 			"Key to hold down before clicking on target location.");
 
-		if (!m_Enabled)
+		if (!f_Enabled)
 			ImGui::EndDisabled();
     }
 
@@ -154,7 +154,7 @@ namespace cheat::feature
 		auto relativePos = app::WorldShiftManager_GetRelativePosition(nullptr, worldPosition, nullptr);
 		auto groundHeight = app::Miscs_CalcCurrentGroundHeight(nullptr, relativePos.x, relativePos.z, nullptr);
 
-		TeleportTo({ worldPosition.x, groundHeight > 0 ? groundHeight + 5 : m_DefaultHeight, worldPosition.z }, true, game::GetCurrentMapSceneID());
+		TeleportTo({ worldPosition.x, groundHeight > 0 ? groundHeight + 5 : f_DefaultHeight, worldPosition.z }, true, game::GetCurrentMapSceneID());
 	}
 
 	// Calling teleport if map clicked.
@@ -164,8 +164,8 @@ namespace cheat::feature
 	{
 		MapTeleport& mapTeleport = MapTeleport::GetInstance();
 
-		if (!mapTeleport.m_Enabled || !mapTeleport.m_Key.value().IsPressed())
-			return callOrigin(InLevelMapPageContext_OnMapClicked_Hook, __this, screenPos, method);
+		if (!mapTeleport.f_Enabled || !mapTeleport.f_Key.value().IsPressed())
+			return CALL_ORIGIN(InLevelMapPageContext_OnMapClicked_Hook, __this, screenPos, method);
 
 		app::Vector2 mapPosition{};
 		bool mapPosResult = ScreenToMapPosition(__this, screenPos, &mapPosition);
@@ -179,8 +179,8 @@ namespace cheat::feature
 	static void InLevelMapPageContext_OnMarkClicked_Hook(app::InLevelMapPageContext* __this, app::MonoMapMark* mark, MethodInfo* method)
 	{
 		MapTeleport& mapTeleport = MapTeleport::GetInstance();
-		if (!mapTeleport.m_Enabled || !mapTeleport.m_Key.value().IsPressed())
-			return callOrigin(InLevelMapPageContext_OnMarkClicked_Hook, __this, mark, method);
+		if (!mapTeleport.f_Enabled || !mapTeleport.f_Key.value().IsPressed())
+			return CALL_ORIGIN(InLevelMapPageContext_OnMarkClicked_Hook, __this, mark, method);
 
 		mapTeleport.TeleportTo(mark->fields._levelMapPos);
 	}
@@ -259,7 +259,7 @@ namespace cheat::feature
 
 	static app::Vector3 LocalEntityInfoData_GetTargetPos_Hook(app::LocalEntityInfoData* __this, MethodInfo* method)
 	{
-		auto result = callOrigin(LocalEntityInfoData_GetTargetPos_Hook, __this, method);
+		auto result = CALL_ORIGIN(LocalEntityInfoData_GetTargetPos_Hook, __this, method);
 		
 		MapTeleport& mapTeleport = MapTeleport::GetInstance();
 		mapTeleport.OnGetTargetPos(result);
@@ -269,7 +269,7 @@ namespace cheat::feature
 
 	static bool LoadingManager_NeedTransByServer_Hook(app::LoadingManager* __this, uint32_t sceneId, app::Vector3 position, MethodInfo* method)
 	{
-		auto result = callOrigin(LoadingManager_NeedTransByServer_Hook, __this, sceneId, position, method);
+		auto result = CALL_ORIGIN(LoadingManager_NeedTransByServer_Hook, __this, sceneId, position, method);
 
 		MapTeleport& mapTeleport = MapTeleport::GetInstance();
 		mapTeleport.OnCheckTeleportDistance(result);
@@ -284,7 +284,7 @@ namespace cheat::feature
 		MapTeleport& mapTeleport = MapTeleport::GetInstance();
 		mapTeleport.OnPerformPlayerTransmit(position);
 
-		callOrigin(LoadingManager_PerformPlayerTransmit_Hook, __this, position, someEnum, someUint1, teleportType, someUint2, method);
+		CALL_ORIGIN(LoadingManager_PerformPlayerTransmit_Hook, __this, position, someEnum, someUint1, teleportType, someUint2, method);
 	}
 
 
@@ -297,7 +297,7 @@ namespace cheat::feature
 			mapTeleport.OnSetAvatarPosition(position);
 		}
 
-		callOrigin(Entity_SetPosition_Hook, __this, position, someBool, method);
+		CALL_ORIGIN(Entity_SetPosition_Hook, __this, position, someBool, method);
 	}
 
 }

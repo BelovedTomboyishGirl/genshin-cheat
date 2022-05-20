@@ -4,7 +4,7 @@
 #include <misc/cpp/imgui_stdlib.h>
 #include <regex>
 
-namespace cheat::feature::sniffer
+namespace sniffer
 {
 	SnifferWindow& SnifferWindow::GetInstance()
 	{
@@ -32,22 +32,22 @@ namespace cheat::feature::sniffer
 
 		switch (m_SortValue)
 		{
-		case cheat::feature::sniffer::SnifferWindow::SortValue::Name:
+		case sniffer::SnifferWindow::SortValue::Name:
 			m_CapturedPackets.insert(std::lower_bound(m_CapturedPackets.begin(), m_CapturedPackets.end(), info, nameCompare), info);
 			if (m_FilterGroup.Execute(info))
 				m_CachedPackets.insert(std::lower_bound(m_CapturedPackets.begin(), m_CapturedPackets.end(), info, nameCompare), info);
 			break;
-		case cheat::feature::sniffer::SnifferWindow::SortValue::Size:
+		case sniffer::SnifferWindow::SortValue::Size:
 			m_CapturedPackets.insert(std::lower_bound(m_CapturedPackets.begin(), m_CapturedPackets.end(), info, sizeCompare), info);
 			if (m_FilterGroup.Execute(info))
 				m_CachedPackets.insert(std::lower_bound(m_CapturedPackets.begin(), m_CapturedPackets.end(), info, nameCompare), info);
 			break;
-		case cheat::feature::sniffer::SnifferWindow::SortValue::Id:
+		case sniffer::SnifferWindow::SortValue::Id:
 			m_CapturedPackets.insert(std::lower_bound(m_CapturedPackets.begin(), m_CapturedPackets.end(), info, idCompare), info);
 			if (m_FilterGroup.Execute(info))
 				m_CachedPackets.insert(std::lower_bound(m_CapturedPackets.begin(), m_CapturedPackets.end(), info, nameCompare), info);
 			break;
-		case cheat::feature::sniffer::SnifferWindow::SortValue::Type:
+		case sniffer::SnifferWindow::SortValue::Type:
 			m_CapturedPackets.insert(std::lower_bound(m_CapturedPackets.begin(), m_CapturedPackets.end(), info, typeCompare), info);
 			if (m_FilterGroup.Execute(info))
 				m_CachedPackets.insert(std::lower_bound(m_CapturedPackets.begin(), m_CapturedPackets.end(), info, nameCompare), info);
@@ -65,30 +65,39 @@ namespace cheat::feature::sniffer
 
 		const std::lock_guard<std::mutex> lock(m_CapturePacketLock);
 
-		if (!ImGui::Begin("Packet sniffer", m_Show))
+		bool showPrev = m_Show;
+		bool windowShowed = ImGui::Begin("Packet sniffer", m_Show);
+		
+		if (showPrev != m_Show)
+			m_Show.FireChanged();
+		
+		if (!windowShowed)
+		{
+			ImGui::End();
 			return;
+		}
 
 		if (ComboEnum("## SortValue", &m_SortValue))
 		{
 			switch (m_SortValue)
 			{
-			case cheat::feature::sniffer::SnifferWindow::SortValue::Name:
+			case sniffer::SnifferWindow::SortValue::Name:
 				m_CapturedPackets.sort(nameCompare);
 				m_CachedPackets.sort(nameCompare);
 				break;
-			case cheat::feature::sniffer::SnifferWindow::SortValue::Size:
+			case sniffer::SnifferWindow::SortValue::Size:
 				m_CapturedPackets.sort(sizeCompare);
 				m_CachedPackets.sort(sizeCompare);
 				break;
-			case cheat::feature::sniffer::SnifferWindow::SortValue::Id:
+			case sniffer::SnifferWindow::SortValue::Id:
 				m_CapturedPackets.sort(idCompare);
 				m_CachedPackets.sort(idCompare);
 				break;
-			case cheat::feature::sniffer::SnifferWindow::SortValue::Type:
+			case sniffer::SnifferWindow::SortValue::Type:
 				m_CapturedPackets.sort(typeCompare);
 				m_CachedPackets.sort(typeCompare);
 				break;
-			case cheat::feature::sniffer::SnifferWindow::SortValue::Time:
+			case sniffer::SnifferWindow::SortValue::Time:
 				m_CapturedPackets.sort(timeCompare);
 				m_CachedPackets.sort(timeCompare);
 				break;
@@ -199,14 +208,14 @@ namespace cheat::feature::sniffer
 
 		switch (compare)
 		{
-		case cheat::feature::sniffer::Filter::CompareType::Regex:
+		case sniffer::Filter::CompareType::Regex:
 		{
 			std::regex _regex(lowerPattern.c_str());
 			return std::regex_match(lowerValue, _regex);
 		}
-		case cheat::feature::sniffer::Filter::CompareType::Equal:
+		case sniffer::Filter::CompareType::Equal:
 			return lowerValue == lowerPattern;
-		case cheat::feature::sniffer::Filter::CompareType::Contains:
+		case sniffer::Filter::CompareType::Contains:
 			return lowerValue.find(lowerPattern) != std::string::npos;
 		default:
 			return false;
@@ -218,15 +227,15 @@ namespace cheat::feature::sniffer
 	{
 		switch (compare)
 		{
-		case cheat::feature::sniffer::Filter::CompareType::Equal:
+		case sniffer::Filter::CompareType::Equal:
 			return object == value;
-		case cheat::feature::sniffer::Filter::CompareType::Less:
+		case sniffer::Filter::CompareType::Less:
 			return object < value;
-		case cheat::feature::sniffer::Filter::CompareType::LessEqual:
+		case sniffer::Filter::CompareType::LessEqual:
 			return object <= value;
-		case cheat::feature::sniffer::Filter::CompareType::More:
+		case sniffer::Filter::CompareType::More:
 			return object > value;
-		case cheat::feature::sniffer::Filter::CompareType::MoreEqual:
+		case sniffer::Filter::CompareType::MoreEqual:
 			return object >= value;
 		default:
 			return false;
@@ -412,15 +421,15 @@ namespace cheat::feature::sniffer
 		{
 			switch (m_ObjectType)
 			{
-			case cheat::feature::sniffer::Filter::ObjectType::KeyValue:
+			case sniffer::Filter::ObjectType::KeyValue:
 				return FindKeyValue(info);
-			case cheat::feature::sniffer::Filter::ObjectType::AnyKey:
+			case sniffer::Filter::ObjectType::AnyKey:
 				return FindAnyKey(info);
-			case cheat::feature::sniffer::Filter::ObjectType::AnyValue:
+			case sniffer::Filter::ObjectType::AnyValue:
 				return FindAnyValue(info);
-			case cheat::feature::sniffer::Filter::ObjectType::Name:
+			case sniffer::Filter::ObjectType::Name:
 				return ApplyCompareString(info.name(), m_KeyPattern, m_CompareType);
-			case cheat::feature::sniffer::Filter::ObjectType::PacketId:
+			case sniffer::Filter::ObjectType::PacketId:
 				return ApplyCompareString(std::to_string(info.id()), m_KeyPattern, m_CompareType);
 			default:
 				return true;
